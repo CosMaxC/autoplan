@@ -4,9 +4,11 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
+import com.captcha.util.CaptchaUtil;
 import com.miyoushe.sign.constant.MihayouConstants;
 import com.miyoushe.sign.gs.pojo.Award;
 import com.miyoushe.util.HttpUtils;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.http.Header;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -48,6 +50,21 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
                 .add("DS", getDS()).build();
     }
 
+    public Header[] getAccessCaptchaHeaders(String dsType, String challenge, String validate) {
+        return new HeaderBuilder.Builder().addAll(getBasicHeaders())
+                .add("x-rpc-device_id", UUID.randomUUID().toString().replace("-", "").toUpperCase())
+                .add("Content-Type", "application/json;charset=UTF-8")
+                .add("x-rpc-client_type", getClientType())
+                .add("x-rpc-app_version", getAppVersion())
+                .add("x-rpc-signgame", "hk4e")
+                .add("Origin", MiHoYoConfig.NEW_SIGN_ORIGIN)
+                .add("Referer", MiHoYoConfig.NEW_SIGN_ORIGIN)
+                .add("x-rpc-challenge", challenge)
+                .add("x-rpc-validate", validate)
+                .add("x-rpc-seccode", validate + "|jordan")
+                .add("DS", getDS()).build();
+    }
+
     @Override
     public List<Map<String, Object>> doSign() {
         List<Map<String, Object>> uid = getUid();
@@ -81,8 +98,31 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
         data.put("uid", uid);
 
         JSONObject signResult = HttpUtils.doPost(MiHoYoConfig.SIGN_URL, getHeaders(""), data);
+        log.info("原神请求返回：{}", signResult);
 
         if (signResult.getInteger("retcode") == 0) {
+            JSONObject dataJson = signResult.getJSONObject("data");
+            String gt = dataJson.getString("gt");
+            String challenge = dataJson.getString("challenge");
+            Boolean isRisk = dataJson.getBoolean("is_risk");
+            if (isRisk) {
+                Triple<Boolean, String, String> validateByRrOcr = CaptchaUtil.getValidateByRrOcr(gt, challenge, MiHoYoConfig.SIGN_URL);
+                if (!validateByRrOcr.getLeft()) {
+                    log.error("原神签到福利失败：{}", validateByRrOcr.getMiddle());
+                    return "原神签到福利失败：" + validateByRrOcr.getMiddle();
+                } else {
+                    String validate = validateByRrOcr.getRight();
+                    signResult = HttpUtils.doPost(MiHoYoConfig.SIGN_URL, getAccessCaptchaHeaders("", challenge, validate), data);
+                    log.info("验证码后原神请求返回：{}", signResult);
+                    if (signResult.getInteger("retcode") == 0 && !signResult.getJSONObject("data").getBoolean("is_risk")) {
+                        log.info("原神签到福利成功：{}", signResult.get("message"));
+                        return "原神签到福利成功：" + signResult.get("message");
+                    } else {
+                        log.error("原神签到福利签到失败：原神验证码通过但签到失败通过: {}", signResult.get("message"));
+                        return "原神签到福利签到失败：原神验证码通过但签到失败通过：" + signResult.get("message");
+                    }
+                }
+            }
             log.info("原神签到福利成功：{}", signResult.get("message"));
             return "原神签到福利成功：" + signResult.get("message");
         } else {

@@ -68,6 +68,8 @@ public class MiHoYoConfig {
 
     public static final String HUB_VOTE_URL = "https://bbs-api.mihoyo.com/apihub/sapi/upvotePost";
 
+    public static final String BBS_GET_CAPTCHA_URL = "https://bbs-api.mihoyo.com/misc/api/createVerification?is_high=true";
+
 
     public enum HubsEnum {
         BH3(new Hub.Builder().setId("1").setForumId("1").setName("崩坏3").setUrl("https://bbs.mihoyo.com/bh3/").build()),
