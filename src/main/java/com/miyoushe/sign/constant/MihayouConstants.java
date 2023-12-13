@@ -20,11 +20,14 @@ public class MihayouConstants {
      * AppVersion
      */
     public static final String APP_VERSION = "2.60.1";
+    public static final String STAR_RAIL_APP_VERSION = "2.62.2";
 
     /**
      * 签到Salt
      */
     public static final String SIGN_SALT = "1OJyMNCqFlstEQqqMOv0rKCIdTOoJhNt";
+
+    public static final String STAR_RAIL_SIGN_SALT = "0wr0OpH2BNuekYrfeRwkiDdshvt10cTY";
 
     /**
      * 社区签到Salt

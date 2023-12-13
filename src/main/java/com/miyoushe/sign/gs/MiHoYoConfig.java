@@ -37,7 +37,9 @@ public class MiHoYoConfig {
 
     public static final String STAR_RAIL_AWARD_URL = String.format("https://api-takumi.mihoyo.com/event/luna/home?act_id=%s", STAR_RAIL_ACT_ID);
 
-    public static final String ROLE_URL = String.format("https://api-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie?game_biz=%s", "hk4e_cn");
+    public static final String GENSHIN_ROLE_URL = String.format("https://api-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie?game_biz=%s", "hk4e_cn");
+
+     static final String STAR_RAIL_ROLE_URL = String.format("https://api-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie?game_biz=%s", "hkrpg_cn");
 
     public static final String INFO_URL = "https://api-takumi.mihoyo.com/event/luna/info";
 

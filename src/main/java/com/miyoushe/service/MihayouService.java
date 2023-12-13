@@ -1,13 +1,17 @@
 package com.miyoushe.service;
 
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.miyoushe.mapper.AutoMihayouDao;
 import com.miyoushe.model.AutoMihayou;
+import com.miyoushe.sign.constant.MihayouConstants;
 import com.miyoushe.sign.gs.GenShinSignMiHoYo;
-import com.miyoushe.sign.sr.StarRailSignMiHoYo;
+import com.miyoushe.sign.gs.MiHoYoConfig;
+import com.miyoushe.sign.gs.MiHoYoSignMiHoYo;
+import com.miyoushe.sign.gs.StarRailSignMiHoYo;
 import com.oldwu.constant.URLConstant;
 import com.oldwu.dao.AutoLogDao;
 import com.oldwu.dao.UserDao;
@@ -26,10 +30,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class MihayouService {
@@ -140,57 +141,25 @@ public class MihayouService {
 
     public List<Map<String, String>> addMiHuYouPlan(AutoMihayou autoMihayou) {
         List<Map<String, String>> list = new ArrayList<>();
-        Map<String, String> map = new HashMap<>();
 
         Map<String, Object> stringObjectMap = checkForm(autoMihayou, false);
         if (!(boolean) stringObjectMap.get("flag")) {
+            Map<String, String> map = new HashMap<>();
             map.put("code", "-1");
             map.put("msg", (String) stringObjectMap.get("msg"));
             list.add(map);
             return list;
         }
 
-        //信息检查完毕后，尝试登录账号，进行验证
-        GenShinSignMiHoYo signMiHoYo = new GenShinSignMiHoYo(autoMihayou.getCookie());
-        StarRailSignMiHoYo starRailSignMiHoYo = new StarRailSignMiHoYo(autoMihayou.getCookie());
-        List<Map<String, Object>> genshinUidInfo = signMiHoYo.getUid();
+        boolean isPass = setAutoMiHayou(autoMihayou, stringObjectMap, list);
 
-        //账号都是同一个，如果要错一起错，一般不会出现不一致的情况
-        if (!(boolean) genshinUidInfo.get(0).get("flag")) {
-            map.put("code", "-1");
-            map.put("msg", (String) genshinUidInfo.get(0).get("msg"));
-            list.add(map);
+
+        if (!isPass) {
             return list;
         }
-        //账号验证成功,写入用户数据，如果有多个数据则拿逗号分隔
-        String uid = "";
-        String nickname = "";
-        for (int i = 0; i < genshinUidInfo.size(); i++) {
-            Map<String, Object> map1 = genshinUidInfo.get(i);
-            if (i == 0) {
-                uid = (String) map1.get("uid");
-                nickname = (String) map1.get("nickname");
-            } else {
-                uid = uid + "," + map1.get("uid");
-                nickname = nickname + "," + map1.get("nickname");
-            }
 
-        }
-        autoMihayou.setGenshinUid(uid);
-        autoMihayou.setMiName(nickname);
-        autoMihayou.setSuid((String) stringObjectMap.get("stuid"));
-        autoMihayou.setStoken((String) stringObjectMap.get("stoken"));
-        autoMihayou.setOtherKey((String) stringObjectMap.get("login_ticket_str"));
-        autoMihayou.setStatus("100");
-        try {
-            Map<String, Object> personalInfo = getPersonalInfo(autoMihayou.getCookie());
-            autoMihayou.setAvatar((String) personalInfo.get("avatar_url"));
-        } catch (Exception e) {
-            logger.warn("获取头像失败！" + genshinUidInfo);
-        }
         //判断数据是否存在，使用stuid进行检索
         AutoMihayou autoMihayou1 = mihayouDao.selectBystuid(autoMihayou.getSuid());
-//            AutoMihayou autoMihayou1 = mihayouDao.selectByGenshinUid(autoMihayou.getGenshinUid());
         if (autoMihayou1 == null || autoMihayou1.getId() == null) {
             //insert
             mihayouDao.insert(autoMihayou);
@@ -199,6 +168,84 @@ public class MihayouService {
             autoMihayou.setId(autoMihayou1.getId());
             mihayouDao.updateById(autoMihayou);
         }
+        return list;
+    }
+
+    private boolean setAutoMiHayou(AutoMihayou autoMihayou, Map<String, Object> stringObjectMap, List<Map<String, String>> list) {
+        autoMihayou.setSuid((String) stringObjectMap.get("stuid"));
+        autoMihayou.setStoken((String) stringObjectMap.get("stoken"));
+        autoMihayou.setOtherKey((String) stringObjectMap.get("login_ticket_str"));
+        try {
+            Map<String, Object> personalInfo = getPersonalInfo(autoMihayou.getCookie(), autoMihayou.getSuid(), autoMihayou.getStoken());
+            autoMihayou.setAvatar((String) personalInfo.get("avatar_url"));
+            autoMihayou.setMiName((String) personalInfo.get("nickname"));
+        } catch (Exception e) {
+            logger.warn("获取头像失败！" + autoMihayou);
+        }
+        autoMihayou.setStatus("100");
+
+        // 信息检查完毕后，尝试登录账号，进行验证
+        GenShinSignMiHoYo signMiHoYo = new GenShinSignMiHoYo(autoMihayou.getCookie());
+        List<Map<String, Object>> genshinUidInfo = signMiHoYo.getUid();
+
+        boolean isPassGenshin = checkUidInfo(genshinUidInfo, list, stringObjectMap);
+        if (!isPassGenshin) {
+            logger.warn("原神获取失败");
+        } else {
+            String uid = "";
+            String nickname = "";
+            for (int i = 0; i < genshinUidInfo.size(); i++) {
+                Map<String, Object> map1 = genshinUidInfo.get(i);
+                if (i == 0) {
+                    uid = (String) map1.get("uid");
+                    nickname = (String) map1.get("nickname");
+                } else {
+                    uid = uid + "," + map1.get("uid");
+                    nickname = nickname + "," + map1.get("nickname");
+                }
+            }
+            autoMihayou.setGenshinUid(uid);
+            autoMihayou.setGenshinName(nickname);
+        }
+
+        // 获取崩铁信息
+        StarRailSignMiHoYo starRailSignMiHoYo = new StarRailSignMiHoYo(autoMihayou.getCookie());
+        List<Map<String, Object>> starRailSignMiHoYoUid = starRailSignMiHoYo.getUid();
+
+        boolean isPassStarRail = checkUidInfo(starRailSignMiHoYoUid, list, stringObjectMap);
+        if (!isPassStarRail) {
+            logger.warn("崩铁获取失败");
+        } else {
+            String starRailUid = "";
+            String starRailNickname = "";
+            for (int i = 0; i < starRailSignMiHoYoUid.size(); i++) {
+                Map<String, Object> map1 = starRailSignMiHoYoUid.get(i);
+                if (i == 0) {
+                    starRailUid = (String) map1.get("uid");
+                    starRailNickname = (String) map1.get("nickname");
+                } else {
+                    starRailUid = starRailUid + "," + map1.get("uid");
+                    starRailNickname = starRailNickname + "," + map1.get("nickname");
+                }
+            }
+            autoMihayou.setStarRailUid(starRailUid);
+            autoMihayou.setStarRailName(starRailNickname);
+        }
+
+        return isPassGenshin || isPassStarRail;
+    }
+
+    private boolean checkUidInfo(List<Map<String, Object>> genshinUidInfo, List<Map<String, String>> list, Map<String, Object> stringObjectMap) {
+        //账号都是同一个，如果要错一起错，一般不会出现不一致的情况
+        if (!(boolean) genshinUidInfo.get(0).get("flag")) {
+            Map<String, String> map = new HashMap<>();
+            map.put("code", "-1");
+            map.put("msg", (String) genshinUidInfo.get(0).get("msg"));
+            list.add(map);
+            return false;
+        }
+        //账号验证成功,写入用户数据，如果有多个数据则拿逗号分隔
+
         for (Map<String, Object> uidInfoMap : genshinUidInfo) {
             Map<String, String> map1 = new HashMap<>();
             map1.put("code", "200");
@@ -210,7 +257,7 @@ public class MihayouService {
             }
             list.add(map1);
         }
-        return list;
+        return true;
     }
 
     public Map<String, Object> checkForm(AutoMihayou autoMihayou, boolean skipCookieCheck) {
@@ -338,28 +385,35 @@ public class MihayouService {
         }
     }
 
-    public Map<String, Object> editMiHuYouPlan(AutoMihayou autoMihayou1) {
+    public Map<String, Object> editMiHuYouPlan(AutoMihayou autoMihayo1) {
         Map<String, Object> map = new HashMap<>();
-        AutoMihayou autoMihayou = mihayouDao.selectById(autoMihayou1.getId());
+        AutoMihayou autoMihayou = mihayouDao.selectById(autoMihayo1.getId());
         if (autoMihayou == null || autoMihayou.getId() == null) {
             map.put("code", -1);
             map.put("msg", "参数错误！");
             return map;
         }
         //放行管理员
-        String role = userDao.getRole(autoMihayou1.getUserId());
-        if (!autoMihayou.getUserId().equals(autoMihayou1.getUserId()) && !role.equals("ROLE_ADMIN")) {
+        String role = userDao.getRole(autoMihayo1.getUserId());
+        if (!autoMihayou.getUserId().equals(autoMihayo1.getUserId()) && !role.equals("ROLE_ADMIN")) {
             map.put("code", 403);
             map.put("msg", "你没有权限修改！");
             return map;
         }
-        Map<String, Object> formResult = checkForm(autoMihayou1, true);
+//        Map<String, Object> formResult = checkForm(autoMihayo1, true);
+        if (StrUtil.isBlank(autoMihayo1.getCookie())) {
+            autoMihayo1.setCookie(autoMihayou.getCookie());
+        }
+        Map<String, Object> formResult = checkForm(autoMihayo1, false);
         if (!(boolean) formResult.get("flag")) {
             map.put("code", 201);
             map.put("msg", formResult.get("msg"));
             return map;
         }
-        int i = mihayouDao.updateById(autoMihayou1);
+
+        setAutoMiHayou(autoMihayo1, formResult, new ArrayList<>());
+
+        int i = mihayouDao.updateById(autoMihayo1);
         if (i > 0) {
             map.put("code", 200);
             map.put("msg", "操作成功！");
@@ -401,11 +455,18 @@ public class MihayouService {
      * 获取米游社账号各种信息，目前仅用于头像获取
      *
      * @param cookie
+     * @param suid
+     * @param stoken
      */
-    public Map<String, Object> getPersonalInfo(String cookie) throws Exception {
+    public Map<String, Object> getPersonalInfo(String cookie, String suid, String stoken) throws Exception {
         Map<String, Object> map = new HashMap<>();
         Map<String, String> headers = HttpUtils.getHeaders();
         headers.put("Cookie", cookie);
+        headers.put("Referer", "https://www.miyoushe.com");
+        headers.put("x_rpc_app_version", MihayouConstants.APP_VERSION);
+        headers.put("x_rpc_device_id", UUID.randomUUID().toString().replace("-", "").toUpperCase());
+        headers.put("x_rpc_client_type", MihayouConstants.SIGN_CLIENT_TYPE);
+        headers.put("DS", new MiHoYoSignMiHoYo(MiHoYoConfig.HubsEnum.YS.getGame(), suid, stoken).getDS());
         HttpResponse httpResponse = HttpUtils.doGet(URLConstant.MYS_PERSONAL_INFO_URL, "", headers, null);
         JSONObject json = HttpUtils.getJson(httpResponse);
         if (json.getInteger("retcode") != 0) {
@@ -414,13 +475,14 @@ public class MihayouService {
         JSONObject data = json.getJSONObject("data");
         JSONObject userInfo = data.getJSONObject("user_info");
         map.put("avatar_url", userInfo.getString("avatar_url"));
+        map.put("nickname", userInfo.getString("nickname"));
         return map;
     }
 
     @Async
     public void setPersonInfo(Integer id, String cookie) {
         try {
-            Map<String, Object> personalInfo = getPersonalInfo(cookie);
+            Map<String, Object> personalInfo = getPersonalInfo(cookie, null, null);
             if (personalInfo == null) {
                 return;
             }

@@ -1,13 +1,13 @@
-package com.miyoushe.sign.sr;
+package com.miyoushe.sign.gs;
 
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
 import com.captcha.util.CaptchaUtil;
 import com.miyoushe.sign.constant.MihayouConstants;
-import com.miyoushe.sign.gs.MiHoYoAbstractSign;
-import com.miyoushe.sign.gs.MiHoYoConfig;
 import com.miyoushe.sign.gs.pojo.Award;
 import com.miyoushe.util.HttpUtils;
 import org.apache.commons.lang3.tuple.Triple;
@@ -36,12 +36,18 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
     public StarRailSignMiHoYo(String cookie) {
         super(cookie);
         setClientType(MihayouConstants.SIGN_CLIENT_TYPE);
-        setAppVersion(MihayouConstants.APP_VERSION);
-        setSalt(MihayouConstants.SIGN_SALT);
+        setAppVersion(MihayouConstants.STAR_RAIL_APP_VERSION);
+        setSalt(MihayouConstants.STAR_RAIL_SIGN_SALT);
     }
 
     @Override
     public Header[] getHeaders(String dsType) {
+        String ds;
+        if (StrUtil.isNotBlank(dsType)) {
+            ds = getDS(dsType);
+        } else {
+            ds = getDS();
+        }
         return new HeaderBuilder.Builder().addAll(getBasicHeaders())
                 .add("x-rpc-device_id", UUID.randomUUID().toString().replace("-", "").toUpperCase())
                 .add("Content-Type", "application/json;charset=UTF-8")
@@ -50,7 +56,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
                 .add("x-rpc-signgame", "hk4e")
                 .add("Origin", MiHoYoConfig.NEW_SIGN_ORIGIN)
                 .add("Referer", MiHoYoConfig.NEW_SIGN_ORIGIN)
-                .add("DS", getDS()).build();
+                .add("DS", ds).build();
     }
 
     @Override
@@ -79,7 +85,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
 
         try {
 
-            JSONObject result = HttpUtils.doGet(MiHoYoConfig.ROLE_URL, getBasicHeaders());
+            JSONObject result = HttpUtils.doGet(MiHoYoConfig.STAR_RAIL_ROLE_URL, getBasicHeaders());
             if (result == null) {
                 map.put("flag", false);
                 map.put("msg", "获取uid失败，cookie可能有误！");
@@ -151,7 +157,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
         data.put("region", region);
         data.put("uid", uid);
 
-        JSONObject signResult = HttpUtils.doPost(MiHoYoConfig.SIGN_URL, getHeaders(""), data);
+        JSONObject signResult = HttpUtils.doPost(MiHoYoConfig.SIGN_URL, getHeaders(null), data);
 
         if (signResult.getInteger("retcode") == 0) {
             JSONObject dataJson = signResult.getJSONObject("data");

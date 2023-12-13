@@ -54,6 +54,12 @@ public class AutoMihayou implements Serializable {
     @Column(comment = "原神昵称，可能有多个，逗号分隔")
     private String genshinName;
 
+    @Column(comment = "原神uid，可能有多个，逗号分隔")
+    private String starRailUid;
+
+    @Column(comment = "原神昵称，可能有多个，逗号分隔")
+    private String starRailName;
+
     @Column(comment = "米游社昵称")
     private String miName;
 

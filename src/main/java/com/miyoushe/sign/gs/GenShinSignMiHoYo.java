@@ -142,7 +142,7 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
 
         try {
 
-            JSONObject result = HttpUtils.doGet(MiHoYoConfig.ROLE_URL, getBasicHeaders());
+            JSONObject result = HttpUtils.doGet(MiHoYoConfig.GENSHIN_ROLE_URL, getBasicHeaders());
             if (result == null) {
                 map.put("flag", false);
                 map.put("msg", "获取uid失败，cookie可能有误！");

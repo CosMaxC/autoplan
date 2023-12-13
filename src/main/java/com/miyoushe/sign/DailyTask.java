@@ -4,7 +4,7 @@ import com.miyoushe.sign.gs.GenShinSignMiHoYo;
 import com.miyoushe.sign.gs.GenshinHelperProperties;
 import com.miyoushe.sign.gs.MiHoYoConfig;
 import com.miyoushe.sign.gs.MiHoYoSignMiHoYo;
-import com.miyoushe.sign.sr.StarRailSignMiHoYo;
+import com.miyoushe.sign.gs.StarRailSignMiHoYo;
 import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

@@ -58,3 +58,7 @@ proxy:
     use:
       - TelegramPush
       - DiscordPush
+#ocr
+ocr:
+  # https://www.rrocr.com/
+  app-key: 你的秘钥

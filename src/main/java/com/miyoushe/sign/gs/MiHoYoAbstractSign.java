@@ -57,7 +57,7 @@ public abstract class MiHoYoAbstractSign implements Sign {
     }
 
 
-    protected String getDS() {
+    public String getDS() {
         String i = (System.currentTimeMillis() / 1000) + "";
         String r = getRandomStr();
         return createDS(getSalt(), i, r);
