@@ -93,7 +93,7 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
 
         Map<String, Object> data = new HashMap<>();
 
-        data.put("act_id", MiHoYoConfig.ACT_ID);
+        data.put("act_id", MiHoYoConfig.GENSHIN_ACT_ID);
         data.put("region", region);
         data.put("uid", uid);
 
@@ -193,7 +193,7 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
      */
     public Award getAwardInfo(int day) {
 
-        JSONObject awardResult = HttpUtils.doGet(MiHoYoConfig.AWARD_URL, getHeaders(""));
+        JSONObject awardResult = HttpUtils.doGet(MiHoYoConfig.GENSHIN_AWARD_URL, getHeaders(""));
         JSONArray jsonArray = awardResult.getJSONObject("data").getJSONArray("awards");
 
         List<Award> awards = JSON.parseObject(JSON.toJSONString(jsonArray), new TypeReference<List<Award>>() {});
@@ -209,7 +209,7 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
     public String hubSign(String uid, String region) {
         Map<String, Object> data = new HashMap<>();
 
-        data.put("act_id", MiHoYoConfig.ACT_ID);
+        data.put("act_id", MiHoYoConfig.GENSHIN_ACT_ID);
         data.put("region", region);
         data.put("uid", uid);
 

@@ -46,7 +46,7 @@ public abstract class MiHoYoAbstractSign implements Sign {
         return new HeaderBuilder.Builder()
                 .add("Cookie", cookie)
                 .add("User-Agent", String.format(MiHoYoConfig.USER_AGENT_TEMPLATE, getAppVersion()))
-                .add("Referer", MiHoYoConfig.REFERER_URL)
+                .add("Referer", MiHoYoConfig.GENSHIN_REFERER_URL)
                 .add("Accept-Encoding", "gzip, deflate, br")
                 .add("x-rpc-channel", "appstore")
                 .add("accept-language", "zh-CN,zh;q=0.9,ja-JP;q=0.8,ja;q=0.7,en-US;q=0.6,en;q=0.5")

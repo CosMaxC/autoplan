@@ -10,7 +10,9 @@ public class MiHoYoConfig {
     /**
      * genshin
      **/
-    public static final String ACT_ID = "e202311201442471"; // 切勿乱修改
+    public static final String GENSHIN_ACT_ID = "e202311201442471"; // 切勿乱修改
+
+    public static final String STAR_RAIL_ACT_ID = "e202304121516551"; // 切勿乱修改
 
     public static final String APP_VERSION = "2.3.0"; // 切勿乱修改
 
@@ -27,9 +29,13 @@ public class MiHoYoConfig {
 
     public static final String REGION = "cn_gf01"; // 切勿乱修改
 
-    public static final String REFERER_URL = String.format("https://webstatic.mihoyo.com/bbs/event/signin-ys/index.html?bbs_auth_required=%s&act_id=%s&utm_source=%s&utm_medium=%s&utm_campaign=%s", true, ACT_ID, "bbs", "mys", "icon");
+    public static final String GENSHIN_REFERER_URL = String.format("https://webstatic.mihoyo.com/bbs/event/signin-ys/index.html?bbs_auth_required=%s&act_id=%s&utm_source=%s&utm_medium=%s&utm_campaign=%s", true, GENSHIN_ACT_ID, "bbs", "mys", "icon");
 
-    public static final String AWARD_URL = String.format("https://api-takumi.mihoyo.com/event/luna/home?act_id=%s", ACT_ID);
+    public static final String STAR_RAIL_REFERER_URL = String.format("https://webstatic.mihoyo.com/bbs/event/signin-ys/index.html?bbs_auth_required=%s&act_id=%s&utm_source=%s&utm_medium=%s&utm_campaign=%s", true, STAR_RAIL_ACT_ID, "bbs", "mys", "icon");
+
+    public static final String GENSHIN_AWARD_URL = String.format("https://api-takumi.mihoyo.com/event/luna/home?act_id=%s", GENSHIN_ACT_ID);
+
+    public static final String STAR_RAIL_AWARD_URL = String.format("https://api-takumi.mihoyo.com/event/luna/home?act_id=%s", STAR_RAIL_ACT_ID);
 
     public static final String ROLE_URL = String.format("https://api-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie?game_biz=%s", "hk4e_cn");
 

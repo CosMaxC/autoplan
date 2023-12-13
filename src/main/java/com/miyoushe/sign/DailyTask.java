@@ -4,6 +4,7 @@ import com.miyoushe.sign.gs.GenShinSignMiHoYo;
 import com.miyoushe.sign.gs.GenshinHelperProperties;
 import com.miyoushe.sign.gs.MiHoYoConfig;
 import com.miyoushe.sign.gs.MiHoYoSignMiHoYo;
+import com.miyoushe.sign.sr.StarRailSignMiHoYo;
 import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,6 +28,8 @@ public class DailyTask implements Runnable {
 
     public MiHoYoSignMiHoYo miHoYoSign;
 
+    public StarRailSignMiHoYo starRailSign;
+
 
     /**
      * @param account 账号配置信息
@@ -41,9 +44,11 @@ public class DailyTask implements Runnable {
 //        }
 
         genShinSign = new GenShinSignMiHoYo(account.getCookie());
+        starRailSign = new StarRailSignMiHoYo(account.getCookie());
         if (account.getStuid() != null && account.getStoken() != null) {
             miHoYoSign = new MiHoYoSignMiHoYo(MiHoYoConfig.HubsEnum.YS.getGame(), account.getStuid(), account.getStoken());
         }
+
     }
 
     @SneakyThrows
@@ -69,7 +74,20 @@ public class DailyTask implements Runnable {
             for (Map<String, Object> map : list) {
                 if (!(boolean) map.get("flag")){
                     //登录失败，直接返回
-                    map.put("msg",stringBuilder.toString() + "\n" + map.get("msg"));
+                    map.put("msg", stringBuilder + "\n" + map.get("msg"));
+                    return map;
+                }
+
+                stringBuilder.append("\n").append("-----------------\n").append(map.get("msg"));
+            }
+        }
+
+        if (starRailSign != null) {
+            List<Map<String, Object>> list = starRailSign.doSign();
+            for (Map<String, Object> map : list) {
+                if (!(boolean) map.get("flag")){
+                    //登录失败，直接返回
+                    map.put("msg", stringBuilder + "\n" + map.get("msg"));
                     return map;
                 }
 

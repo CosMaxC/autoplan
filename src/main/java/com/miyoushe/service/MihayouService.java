@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.miyoushe.mapper.AutoMihayouDao;
 import com.miyoushe.model.AutoMihayou;
 import com.miyoushe.sign.gs.GenShinSignMiHoYo;
+import com.miyoushe.sign.sr.StarRailSignMiHoYo;
 import com.oldwu.constant.URLConstant;
 import com.oldwu.dao.AutoLogDao;
 import com.oldwu.dao.UserDao;
@@ -151,20 +152,21 @@ public class MihayouService {
 
         //信息检查完毕后，尝试登录账号，进行验证
         GenShinSignMiHoYo signMiHoYo = new GenShinSignMiHoYo(autoMihayou.getCookie());
-        List<Map<String, Object>> uidInfo = signMiHoYo.getUid();
+        StarRailSignMiHoYo starRailSignMiHoYo = new StarRailSignMiHoYo(autoMihayou.getCookie());
+        List<Map<String, Object>> genshinUidInfo = signMiHoYo.getUid();
 
         //账号都是同一个，如果要错一起错，一般不会出现不一致的情况
-        if (!(boolean) uidInfo.get(0).get("flag")) {
+        if (!(boolean) genshinUidInfo.get(0).get("flag")) {
             map.put("code", "-1");
-            map.put("msg", (String) uidInfo.get(0).get("msg"));
+            map.put("msg", (String) genshinUidInfo.get(0).get("msg"));
             list.add(map);
             return list;
         }
         //账号验证成功,写入用户数据，如果有多个数据则拿逗号分隔
         String uid = "";
         String nickname = "";
-        for (int i = 0; i < uidInfo.size(); i++) {
-            Map<String, Object> map1 = uidInfo.get(i);
+        for (int i = 0; i < genshinUidInfo.size(); i++) {
+            Map<String, Object> map1 = genshinUidInfo.get(i);
             if (i == 0) {
                 uid = (String) map1.get("uid");
                 nickname = (String) map1.get("nickname");
@@ -184,7 +186,7 @@ public class MihayouService {
             Map<String, Object> personalInfo = getPersonalInfo(autoMihayou.getCookie());
             autoMihayou.setAvatar((String) personalInfo.get("avatar_url"));
         } catch (Exception e) {
-            logger.warn("获取头像失败！" + uidInfo);
+            logger.warn("获取头像失败！" + genshinUidInfo);
         }
         //判断数据是否存在，使用stuid进行检索
         AutoMihayou autoMihayou1 = mihayouDao.selectBystuid(autoMihayou.getSuid());
@@ -197,7 +199,7 @@ public class MihayouService {
             autoMihayou.setId(autoMihayou1.getId());
             mihayouDao.updateById(autoMihayou);
         }
-        for (Map<String, Object> uidInfoMap : uidInfo) {
+        for (Map<String, Object> uidInfoMap : genshinUidInfo) {
             Map<String, String> map1 = new HashMap<>();
             map1.put("code", "200");
             map1.put("msg", (String) uidInfoMap.get("msg"));
