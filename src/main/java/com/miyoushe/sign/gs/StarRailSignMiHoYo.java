@@ -10,6 +10,7 @@ import com.captcha.util.CaptchaUtil;
 import com.miyoushe.sign.constant.MihayouConstants;
 import com.miyoushe.sign.gs.pojo.Award;
 import com.miyoushe.util.HttpUtils;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.http.Header;
 import org.apache.logging.log4j.LogManager;
@@ -41,36 +42,50 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
     }
 
     @Override
+    public String getDS() {
+        String i = (System.currentTimeMillis() / 1000) + "";
+        String r = getRandomStr();
+        return createDS(MihayouConstants.STAR_RAIL_SIGN_SALT, i, r);
+    }
+
+    private String createDS(String n, String i, String r) {
+        String c = DigestUtils.md5Hex("salt=" + n + "&t=" + i + "&r=" + r);
+        return String.format("%s,%s,%s", i, r, c);
+    }
+
+    @Override
     public Header[] getHeaders(String dsType) {
-        String ds;
-        if (StrUtil.isNotBlank(dsType)) {
-            ds = getDS(dsType);
-        } else {
-            ds = getDS();
-        }
+//        String ds;
+//        if (StrUtil.isNotBlank(dsType)) {
+//            ds = getDS(dsType);
+//        } else {
+//            ds = getDS();
+//        }
         return new HeaderBuilder.Builder().addAll(getBasicHeaders())
                 .add("x-rpc-device_id", UUID.randomUUID().toString().replace("-", "").toUpperCase())
                 .add("Content-Type", "application/json;charset=UTF-8")
                 .add("x-rpc-client_type", getClientType())
                 .add("x-rpc-app_version", getAppVersion())
-                .add("x-rpc-signgame", "hk4e")
+//                .add("x-rpc-signgame", "hk4e")
                 .add("Origin", MiHoYoConfig.NEW_SIGN_ORIGIN)
                 .add("Referer", MiHoYoConfig.NEW_SIGN_ORIGIN)
-                .add("DS", ds).build();
+                .add("DS", getDS()).build();
     }
 
     @Override
     protected Header[] getBasicHeaders() {
         return new HeaderBuilder.Builder()
-                .add("Cookie", cookie)
+                .add("Accept", "application/json, text/plain, */*")
+                .add("x-rpc-channel", "miyousheluodi")
                 .add("User-Agent", String.format(MiHoYoConfig.USER_AGENT_TEMPLATE, getAppVersion()))
-                .add("Referer", MiHoYoConfig.STAR_RAIL_REFERER_URL)
-                .add("Accept-Encoding", "gzip, deflate, br")
-                .add("x-rpc-channel", "appstore")
-                .add("accept-language", "zh-CN,zh;q=0.9,ja-JP;q=0.8,ja;q=0.7,en-US;q=0.6,en;q=0.5")
+//                .add("x-rpc-channel", "appstore")
+                .add("Cookie", cookie)
+                .add("Referer", MiHoYoConfig.NEW_SIGN_ORIGIN)
+                .add("Accept-Encoding", "gzip, deflate")
+                .add("Accept-Language", "zh-CN,en-US;q=0.8")
                 .add("accept-encoding", "gzip, deflate")
                 .add("accept-encoding", "gzip, deflate")
-                .add("x-requested-with", "com.mihoyo.hyperion")
+                .add("X-Requested-With", "com.mihoyo.hyperion")
                 .add("Host", "api-takumi.mihoyo.com").build();
     }
 
