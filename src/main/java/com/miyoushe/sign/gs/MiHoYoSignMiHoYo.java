@@ -1,12 +1,15 @@
 package com.miyoushe.sign.gs;
 
+import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
+import com.captcha.util.CaptchaUtil;
 import com.miyoushe.sign.constant.MihayouConstants;
 import com.miyoushe.sign.gs.pojo.PostResult;
 import com.miyoushe.util.HttpUtils;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.http.Header;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -62,7 +65,7 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
         this.stoken = stoken;
         this.pool = executor;
         setClientType(MihayouConstants.COMMUNITY_CLIENT_TYPE);
-        setAppVersion(MihayouConstants.APP_VERSION);
+        setAppVersion(MihayouConstants.STAR_RAIL_APP_VERSION);
         setSalt(MihayouConstants.COMMUNITY_SALT);
     }
 
@@ -179,13 +182,52 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
         Map<String, Object> data = new HashMap<String, Object>();
         data.put("gids", hub.getForumId());
 
-        JSONObject signResult = HttpUtils.doPost(MiHoYoConfig.HUB_SIGN_URL, getHeaders(MihayouConstants.DS_TYPE_ONE), data);
-        if ("OK".equals(signResult.get("message")) || "重复".equals(signResult.get("message"))) {
-            log.info("{}", signResult.get("message"));
-            return "社区签到: " + signResult.get("message");
+        Header[] headers = getHeaders(MihayouConstants.DS_TYPE_ONE);
+        JSONObject signResult = HttpUtils.doPost(MiHoYoConfig.HUB_SIGN_URL, headers, data);
+        if (signResult.getInteger("retcode") == 0 && !signResult.getString("message").contains("err")) {
+            log.info("社区签到成功：{}", signResult.get("message"));
+            return "社区签到成功：" + signResult.get("message");
+        } else if (signResult.getInteger("retcode") == 1034) {
+            log.warn("社区签到需要验证码：");
+            JSONObject getChallengeResult = HttpUtils.doGet(MiHoYoConfig.BBS_GET_CAPTCHA_URL, headers, new HashMap<>());
+            if (getChallengeResult.getInteger("retcode") != 0) {
+                log.error("社区签到失败: 获取challenge失败：{}", getChallengeResult.get("message"));
+                return "社区签到失败: 获取challenge失败：" + getChallengeResult.get("message");
+            } else {
+                JSONObject challengeData = getChallengeResult.getJSONObject("data");
+                String gt = challengeData.getString("gt");
+                String challenge = challengeData.getString("challenge");
+                Triple<Boolean, String, String> validateByRrOcr = CaptchaUtil.getValidateByRrOcr(gt, challenge, MiHoYoConfig.BBS_GET_CAPTCHA_URL);
+                if (!validateByRrOcr.getLeft()) {
+                    log.error("社区签到失败：获取validate失败：{}", validateByRrOcr.getMiddle());
+                    return "社区签到失败：获取validate失败：" + validateByRrOcr.getMiddle();
+                } else {
+                    String validate = validateByRrOcr.getRight();
+                    Map<String, Object> validateMap = new HashMap<>();
+                    validateMap.put("geetest_challenge", challenge);
+                    validateMap.put("geetest_seccode", validate + "|jordan");
+                    validateMap.put("geetest_validate", validate);
+                    JSONObject validateResult = HttpUtils.doPost(MiHoYoConfig.BBS_CAPTCHA_VERIFY_URL, headers, validateMap);
+                    if (getChallengeResult.getInteger("retcode") != 0) {
+                        log.error("社区签到失败：校验validate失败：{}", validateResult.get("message"));
+                        return "社区签到失败：校验validate失败：" + validateResult.get("message");
+                    }
+                    String successChallenge = validateResult.getJSONObject("data").getString("challenge");
+                    Header[] challengeHeader = new HeaderBuilder.Builder().addAll(headers).add("x-rpc-challenge", successChallenge).build();
+                    signResult = HttpUtils.doPost(MiHoYoConfig.HUB_SIGN_URL, challengeHeader, data);
+                    log.info("验证码后社区签到请求返回：{}", signResult);
+                    if (signResult.getInteger("retcode") == 0) {
+                        log.info("社区签到成功：{}", signResult.get("message"));
+                        return "社区签到成功：" + signResult.get("message");
+                    } else {
+                        log.error("社区签到失败：社区签到验证码通过但签到失败通过: {}", signResult.get("message"));
+                        return "社区签到失败：社区签到验证码通过但签到失败通过：" + signResult.get("message");
+                    }
+                }
+            }
         } else {
-            log.info("社区签到失败: {}", signResult.get("message"));
-            return "社区签到失败: " + signResult.get("message");
+            log.error("社区签到失败: {}", signResult.get("message"));
+            return "社区签到失败：" + signResult.get("message");
         }
     }
 

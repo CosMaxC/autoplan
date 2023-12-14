@@ -104,17 +104,6 @@ public class DailyTask implements Runnable {
                 e.printStackTrace();
             }
         }
-        if (miHoYoSign != null) {
-            try {
-                List<Map<String, Object>> list = miHoYoSign.doSign();
-                for (Map<String, Object> map : list) {
-                    stringBuilder.append("\n").append("-----------------\n").append(map.get("msg"));
-                }
-            } catch (Exception e) {
-                stringBuilder.append("\n").append("[ERROR]miHoYoSign执行异常！").append(e.getMessage());
-                e.printStackTrace();
-            }
-        }
         result.put("msg",stringBuilder.toString());
         result.put("flag",true);
         return result;

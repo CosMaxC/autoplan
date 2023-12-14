@@ -186,7 +186,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
                     return "崩铁：星穹铁道签到福利失败：" + validateByRrOcr.getMiddle();
                 } else {
                     String validate = validateByRrOcr.getRight();
-                    signResult = HttpUtils.doPost(MiHoYoConfig.SIGN_URL, getAccessCaptchaHeaders("", challenge, validate), data);
+                    signResult = HttpUtils.doPost(MiHoYoConfig.SIGN_URL, getHeaders(null), data);
                     log.info("验证码后崩铁：星穹铁道请求返回：{}", signResult);
                     if (signResult.getInteger("retcode") == 0 && !signResult.getJSONObject("data").getBoolean("is_risk")) {
                         log.info("崩铁：星穹铁道签到福利成功：{}", signResult.get("message"));

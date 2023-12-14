@@ -1,5 +1,6 @@
 package com.miyoushe.sign.gs;
 
+import cn.hutool.core.util.RandomUtil;
 import com.miyoushe.sign.Sign;
 import com.miyoushe.sign.constant.MihayouConstants;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -64,9 +65,8 @@ public abstract class MiHoYoAbstractSign implements Sign {
     }
 
     protected String getDS(String gidsJson) {
-        Random random = new Random();
         String i = (System.currentTimeMillis() / 1000) + "";
-        String r = String.valueOf(random.nextInt(200000 - 100000) + 100000 + 1);
+        String r = String.valueOf(RandomUtil.randomInt(100001, 200000));
         return createDS(MihayouConstants.COMMUNITY_SIGN_SALT, i, r, gidsJson);
     }
 
