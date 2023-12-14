@@ -186,7 +186,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
                     return "崩铁：星穹铁道签到福利失败：" + validateByRrOcr.getMiddle();
                 } else {
                     String validate = validateByRrOcr.getRight();
-                    signResult = HttpUtils.doPost(MiHoYoConfig.SIGN_URL, getHeaders(null), data);
+                    signResult = HttpUtils.doPost(MiHoYoConfig.SIGN_URL, getAccessCaptchaHeaders("", challenge, validate), data);
                     log.info("验证码后崩铁：星穹铁道请求返回：{}", signResult);
                     if (signResult.getInteger("retcode") == 0 && !signResult.getJSONObject("data").getBoolean("is_risk")) {
                         log.info("崩铁：星穹铁道签到福利成功：{}", signResult.get("message"));
@@ -211,7 +211,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
                 .add("Content-Type", "application/json;charset=UTF-8")
                 .add("x-rpc-client_type", getClientType())
                 .add("x-rpc-app_version", getAppVersion())
-                .add("x-rpc-signgame", "hk4e")
+//                .add("x-rpc-signgame", "hk4e")
                 .add("Origin", MiHoYoConfig.NEW_SIGN_ORIGIN)
                 .add("Referer", MiHoYoConfig.NEW_SIGN_ORIGIN)
                 .add("x-rpc-challenge", challenge)
