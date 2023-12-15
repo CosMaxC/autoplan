@@ -1,6 +1,5 @@
 package com.miyoushe.sign.gs;
 
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -9,6 +8,8 @@ import com.captcha.util.CaptchaUtil;
 import com.miyoushe.sign.constant.MihayouConstants;
 import com.miyoushe.sign.gs.pojo.PostResult;
 import com.miyoushe.util.HttpUtils;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.http.Header;
 import org.apache.logging.log4j.LogManager;
@@ -73,7 +74,7 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
     public List<Map<String, Object>> doSign() throws Exception {
         List<Map<String, Object>> list = new ArrayList<>();
 
-        Map<String, Object> map = new HashMap<>();
+        Map<String, Object> map = new HashMap<>(2);
         StringBuilder msg = new StringBuilder();
         log.info("社区签到任务开始");
         msg.append("社区签到任务开始\n");
@@ -106,7 +107,7 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
     }
 
     public Map<String, Object> doSingleThreadSign() throws Exception {
-        Map<String, Object> map = new HashMap<>();
+        Map<String, Object> map = new HashMap<>(2);
         String msg = "";
         String sign = sign();
         msg = msg + sign + "\n";
@@ -184,46 +185,26 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
 
         Header[] headers = getHeaders(MihayouConstants.DS_TYPE_ONE);
         JSONObject signResult = HttpUtils.doPost(MiHoYoConfig.HUB_SIGN_URL, headers, data);
+
         if (signResult.getInteger("retcode") == 0 && !signResult.getString("message").contains("err")) {
             log.info("社区签到成功：{}", signResult.get("message"));
             return "社区签到成功：" + signResult.get("message");
         } else if (signResult.getInteger("retcode") == 1034) {
             log.warn("社区签到需要验证码：");
-            JSONObject getChallengeResult = HttpUtils.doGet(MiHoYoConfig.BBS_GET_CAPTCHA_URL, headers, new HashMap<>());
-            if (getChallengeResult.getInteger("retcode") != 0) {
-                log.error("社区签到失败: 获取challenge失败：{}", getChallengeResult.get("message"));
-                return "社区签到失败: 获取challenge失败：" + getChallengeResult.get("message");
+            Triple<Boolean, String, Header[]> getChallengeHeader = getChallengeHeader(headers);
+            if (!getChallengeHeader.getLeft()) {
+                log.error("社区签到失败: 验证码处理失败：{}", getChallengeHeader.getMiddle());
+                return "社区签到失败: 验证码处理失败：" + getChallengeHeader.getMiddle();
+            }
+            Header[] challengeHeader = getChallengeHeader.getRight();
+            signResult = HttpUtils.doPost(MiHoYoConfig.HUB_SIGN_URL, challengeHeader, data);
+            log.info("验证码后社区签到请求返回：{}", signResult);
+            if (signResult.getInteger("retcode") == 0) {
+                log.info("社区签到成功：{}", signResult.get("message"));
+                return "社区签到成功：" + signResult.get("message");
             } else {
-                JSONObject challengeData = getChallengeResult.getJSONObject("data");
-                String gt = challengeData.getString("gt");
-                String challenge = challengeData.getString("challenge");
-                Triple<Boolean, String, String> validateByRrOcr = CaptchaUtil.getValidateByRrOcr(gt, challenge, MiHoYoConfig.BBS_GET_CAPTCHA_URL);
-                if (!validateByRrOcr.getLeft()) {
-                    log.error("社区签到失败：获取validate失败：{}", validateByRrOcr.getMiddle());
-                    return "社区签到失败：获取validate失败：" + validateByRrOcr.getMiddle();
-                } else {
-                    String validate = validateByRrOcr.getRight();
-                    Map<String, Object> validateMap = new HashMap<>();
-                    validateMap.put("geetest_challenge", challenge);
-                    validateMap.put("geetest_seccode", validate + "|jordan");
-                    validateMap.put("geetest_validate", validate);
-                    JSONObject validateResult = HttpUtils.doPost(MiHoYoConfig.BBS_CAPTCHA_VERIFY_URL, headers, validateMap);
-                    if (getChallengeResult.getInteger("retcode") != 0) {
-                        log.error("社区签到失败：校验validate失败：{}", validateResult.get("message"));
-                        return "社区签到失败：校验validate失败：" + validateResult.get("message");
-                    }
-                    String successChallenge = validateResult.getJSONObject("data").getString("challenge");
-                    Header[] challengeHeader = new HeaderBuilder.Builder().addAll(headers).add("x-rpc-challenge", successChallenge).build();
-                    signResult = HttpUtils.doPost(MiHoYoConfig.HUB_SIGN_URL, challengeHeader, data);
-                    log.info("验证码后社区签到请求返回：{}", signResult);
-                    if (signResult.getInteger("retcode") == 0) {
-                        log.info("社区签到成功：{}", signResult.get("message"));
-                        return "社区签到成功：" + signResult.get("message");
-                    } else {
-                        log.error("社区签到失败：社区签到验证码通过但签到失败通过: {}", signResult.get("message"));
-                        return "社区签到失败：社区签到验证码通过但签到失败通过：" + signResult.get("message");
-                    }
-                }
+                log.error("社区签到失败：社区签到验证码通过但签到失败通过: {}", signResult.get("message"));
+                return "社区签到失败：社区签到验证码通过但签到失败通过：" + signResult.get("message");
             }
         } else {
             log.error("社区签到失败: {}", signResult.get("message"));
@@ -231,6 +212,41 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
         }
     }
 
+    /**
+     * 米游社获取验证码并通过
+     * @param headers 原请求头
+     * @return
+     */
+    private Triple<Boolean, String, Header[]> getChallengeHeader(Header[] headers) {
+        JSONObject getChallengeResult = HttpUtils.doGet(MiHoYoConfig.BBS_GET_CAPTCHA_URL, headers, new HashMap<>());
+        if (getChallengeResult.getInteger("retcode") != 0) {
+            log.error("获取challenge失败：{}", getChallengeResult.get("message"));
+            return ImmutableTriple.of(false, "获取取challenge失败：" + getChallengeResult.get("message"), null);
+        } else {
+            JSONObject challengeData = getChallengeResult.getJSONObject("data");
+            String gt = challengeData.getString("gt");
+            String challenge = challengeData.getString("challenge");
+            Triple<Boolean, String, String> validateByRrOcr = CaptchaUtil.getValidateByRrOcr(gt, challenge, MiHoYoConfig.BBS_GET_CAPTCHA_URL);
+            if (!validateByRrOcr.getLeft()) {
+                log.error("获取validate失败：{}", validateByRrOcr.getMiddle());
+                return ImmutableTriple.of(false, "获取validate失败：" + validateByRrOcr.getMiddle(), null);
+            } else {
+                String validate = validateByRrOcr.getRight();
+                Map<String, Object> validateMap = new HashMap<>();
+                validateMap.put("geetest_challenge", challenge);
+                validateMap.put("geetest_seccode", validate + "|jordan");
+                validateMap.put("geetest_validate", validate);
+                JSONObject validateResult = HttpUtils.doPost(MiHoYoConfig.BBS_CAPTCHA_VERIFY_URL, headers, validateMap);
+                if (getChallengeResult.getInteger("retcode") != 0) {
+                    log.error("米游社校验validate失败：{}", validateResult.get("message"));
+                    return ImmutableTriple.of(false, "米游社校验validate失败：" + validateResult.get("message"), null);
+                }
+                String successChallenge = validateResult.getJSONObject("data").getString("challenge");
+                return ImmutableTriple.of(true, "ok",
+                        new HeaderBuilder.Builder().addAll(headers).add("x-rpc-challenge", successChallenge).build());
+            }
+        }
+    }
 
     /**
      * 原神频道
@@ -278,8 +294,28 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
         Map<String, Object> data = new HashMap<>();
         data.put("post_id", post.getPost().getPost_id());
         data.put("is_cancel", false);
-        JSONObject result = HttpUtils.doGet(String.format(MiHoYoConfig.HUB_VIEW_URL, hub.getForumId()), getHeaders(MihayouConstants.DS_TYPE_TWO), data);
-        return "OK".equals(result.get("message"));
+        Header[] headers = getHeaders(MihayouConstants.DS_TYPE_TWO);
+        JSONObject result = HttpUtils.doGet(String.format(MiHoYoConfig.HUB_VIEW_URL, hub.getForumId()), headers, data);
+        if (result.getInteger("retcode") == 0) {
+            return true;
+        } else if (result.getInteger("retcode") == 1034) {
+            Triple<Boolean, String, Header[]> challengeHeader = getChallengeHeader(headers);
+            if (!challengeHeader.getLeft()) {
+                log.error("看贴失败：{}", challengeHeader.getMiddle());
+                return false;
+            } else {
+                result = HttpUtils.doGet(String.format(MiHoYoConfig.HUB_VIEW_URL, hub.getForumId()), challengeHeader.getRight(), data);
+                if (result.getInteger("retcode") == 0) {
+                    return true;
+                } else {
+                    log.error("看贴失败：验证码后失败：{}", result.getString("message"));
+                    return false;
+                }
+            }
+        } else {
+            log.error("看贴失败：{}", result.get("message"));
+            return false;
+        }
     }
 
     /**
@@ -291,8 +327,28 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
         Map<String, Object> data = new HashMap<>();
         data.put("post_id", post.getPost().getPost_id());
         data.put("is_cancel", false);
-        JSONObject result = HttpUtils.doPost(MiHoYoConfig.HUB_VOTE_URL, getHeaders(MihayouConstants.DS_TYPE_TWO), data);
-        return "OK".equals(result.get("message"));
+        Header[] headers = getHeaders(MihayouConstants.DS_TYPE_TWO);
+        JSONObject result = HttpUtils.doPost(MiHoYoConfig.HUB_VOTE_URL, headers, data);
+        if (result.getInteger("retcode") == 0) {
+            return true;
+        } else if (result.getInteger("retcode") == 1034) {
+            Triple<Boolean, String, Header[]> challengeHeader = getChallengeHeader(headers);
+            if (!challengeHeader.getLeft()) {
+                log.error("点赞失败：{}", challengeHeader.getMiddle());
+                return false;
+            } else {
+                result = HttpUtils.doPost(MiHoYoConfig.HUB_VOTE_URL, challengeHeader.getRight(), data);
+                if (result.getInteger("retcode") == 0) {
+                    return true;
+                } else {
+                    log.error("点赞失败：验证码后失败：{}", result.getString("message"));
+                    return false;
+                }
+            }
+        } else {
+            log.error("点赞失败：{}", result.get("message"));
+            return false;
+        }
     }
 
     /**
@@ -301,8 +357,28 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
      * @param post
      */
     public boolean sharePost(PostResult post) {
-        JSONObject result = HttpUtils.doGet(String.format(MiHoYoConfig.HUB_SHARE_URL, post.getPost().getPost_id()), getHeaders(MihayouConstants.DS_TYPE_TWO));
-        return "OK".equals(result.get("message"));
+        Header[] headers = getHeaders(MihayouConstants.DS_TYPE_TWO);
+        JSONObject result = HttpUtils.doGet(String.format(MiHoYoConfig.HUB_SHARE_URL, post.getPost().getPost_id()), headers);
+        if (result.getInteger("retcode") == 0) {
+            return true;
+        } else if (result.getInteger("retcode") == 1034) {
+            Triple<Boolean, String, Header[]> challengeHeader = getChallengeHeader(headers);
+            if (!challengeHeader.getLeft()) {
+                log.error("分享失败：{}", challengeHeader.getMiddle());
+                return false;
+            } else {
+                result = HttpUtils.doGet(String.format(MiHoYoConfig.HUB_SHARE_URL, post.getPost().getPost_id()), challengeHeader.getRight());
+                if (result.getInteger("retcode") == 0) {
+                    return true;
+                } else {
+                    log.error("分享失败：验证码后失败：{}", result.getString("message"));
+                    return false;
+                }
+            }
+        } else {
+            log.error("分享失败：{}", result.get("message"));
+            return false;
+        }
     }
 
 
@@ -358,10 +434,26 @@ public class MiHoYoSignMiHoYo extends MiHoYoAbstractSign {
 
             builder.add("DS", getDS(json.toString()));
         } else if (MihayouConstants.DS_TYPE_TWO.equals(dsType)){
-            builder.add("DS", getDS());
+            builder.add("DS", getDS(false));
         }
 
         return builder.build();
     }
 
+    public String getDS(boolean isWeb) {
+        String i = (System.currentTimeMillis() / 1000) + "";
+        String r = getRandomStr();
+        String salt;
+        if (isWeb) {
+            salt = MihayouConstants.COMMUNITY_SIGN_SALT;
+        } else {
+            salt = MihayouConstants.MIHOYO_BBS_SALT;
+        }
+        return createDS(salt, i, r);
+    }
+
+    private String createDS(String n, String i, String r) {
+        String c = DigestUtils.md5Hex("salt=" + n + "&t=" + i + "&r=" + r);
+        return String.format("%s,%s,%s", i, r, c);
+    }
 }

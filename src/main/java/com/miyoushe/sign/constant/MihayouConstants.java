@@ -26,6 +26,7 @@ public class MihayouConstants {
      * 签到Salt
      */
     public static final String SIGN_SALT = "1OJyMNCqFlstEQqqMOv0rKCIdTOoJhNt";
+    public static final String MIHOYO_BBS_SALT = "pIlzNr5SAZhdnFW8ZxauW8UlxRdZc45r";
 
     public static final String STAR_RAIL_SIGN_SALT = "0wr0OpH2BNuekYrfeRwkiDdshvt10cTY";
 
