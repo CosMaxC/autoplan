@@ -89,11 +89,4 @@ public class URLConstant {
     public static final String PUSH_SERVER_PUSH_V2 = "https://sctapi.ftqq.com/";
     public static final String PUSH_SERVER_PUSH_TELEGRAM = "https://api.telegram.org/bot";
     //-------------push url end
-
-    //-------------mys url start
-    //-------------mys url start
-    //-------------mys url start
-    public static final String MYS_PERSONAL_INFO_URL = "https://bbs-api.miyoushe.com/user/wapi/getUserFullInfo?gids=2";
-    public static final String MYS_TOKEN_URL = "https://api-takumi.miyoushe.com/auth/api/getMultiTokenByLoginTicket?login_ticket=%s&token_types=3&uid=%s";
-
 }

@@ -11,6 +11,7 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -50,6 +51,11 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
                 return encodedPassword.equals(MD5Util.encode((String) rawPassword));
             }
         }); //user Details Service验证
+    }
+
+    @Override
+    public void configure(WebSecurity web) throws Exception {
+        web.ignoring().antMatchers("/api/mihoyo/**");
     }
 
     @Bean

@@ -362,7 +362,7 @@ public class MihayouService {
 
     public Map<String, Object> getCookieToken(String login_ticket, String accountId) {
         Map<String, Object> map = new HashMap<>();
-        String token_url = String.format(URLConstant.MYS_TOKEN_URL, login_ticket, accountId);
+        String token_url = String.format(MiHoYoConfig.MYS_TOKEN_URL, login_ticket, accountId);
         HttpResponse httpResponse = null;
         try {
             httpResponse = HttpUtils.doGet(token_url, null, HttpUtils.getHeaders(), null);
@@ -467,7 +467,7 @@ public class MihayouService {
         headers.put("x_rpc_device_id", UUID.randomUUID().toString().replace("-", "").toUpperCase());
         headers.put("x_rpc_client_type", MihayouConstants.SIGN_CLIENT_TYPE);
         headers.put("DS", new MiHoYoSignMiHoYo(MiHoYoConfig.HubsEnum.YS.getGame(), suid, stoken).getDS());
-        HttpResponse httpResponse = HttpUtils.doGet(URLConstant.MYS_PERSONAL_INFO_URL, "", headers, null);
+        HttpResponse httpResponse = HttpUtils.doGet(MiHoYoConfig.MYS_PERSONAL_INFO_URL, "", headers, null);
         JSONObject json = HttpUtils.getJson(httpResponse);
         if (json.getInteger("retcode") != 0) {
             return null;

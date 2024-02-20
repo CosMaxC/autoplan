@@ -397,5 +397,17 @@ CREATE TABLE `sys_config`  (
 -- ----------------------------
 INSERT INTO `sys_config` VALUES (1, '<p class=\"red\">警告！！</p>\r\n<p>1.3版本的更新重构了推送部分的代码，之前设置的推送地址会全部失效</p>\r\n<p>目前推送部分代码为json字符串形式传入</p>\r\n<p>\r\n在填写webhook的页面中已经给出了\r\n<a style=\"color: blue\" lay-href=\"/webhook-generate\">生成器</a>\r\n按钮\r\n</p>\r\n<p>\r\n请使用\r\n<a style=\"color: blue\" lay-href=\"/webhook-generate\">生成器</a>\r\n生成之后复制到webhook一栏更新配置！！\r\n</p>', 'system_notice_content');
 
+CREATE TABLE mihoyo_user (
+                                      id INT auto_increment NOT NULL COMMENT 'id',
+                                      mobile varchar(100) NOT NULL COMMENT '手机号',
+                                      suid varchar(100) NOT NULL COMMENT '米哈游suid',
+                                      create_time DATETIME NOT NULL,
+                                      update_time DATETIME NOT NULL,
+                                      CONSTRAINT mihoyo_user_PK PRIMARY KEY (id)
+)
+    ENGINE=InnoDB
+    DEFAULT CHARSET=utf8
+    COLLATE=utf8_general_ci;
+CREATE INDEX mihoyo_user_mobile_IDX USING BTREE ON mihoyo_user (mobile,suid);
 
 SET FOREIGN_KEY_CHECKS = 1;

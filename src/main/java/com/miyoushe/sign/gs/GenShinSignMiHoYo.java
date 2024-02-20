@@ -155,11 +155,13 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
             for (Object user : jsonArray) {
                 JSONObject userInfo = (JSONObject) user;
                 String uid = userInfo.getString("game_uid");
+                String gameBiz = userInfo.getString("game_biz");
                 String nickname = userInfo.getString("nickname");
                 String regionName = userInfo.getString("region_name");
                 String region = userInfo.getString("region");
 
                 log.info("获取用户UID：{}", uid);
+                log.info("gameBiz：{}", gameBiz);
                 log.info("当前用户名称：{}", nickname);
                 log.info("当前用户服务器：{}", regionName);
 
@@ -168,6 +170,7 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
                 Map<String, Object> mapInfo = new HashMap<>();
                 mapInfo.put("uid", uid);
                 mapInfo.put("nickname", nickname);
+                mapInfo.put("game_biz", gameBiz);
                 mapInfo.put("region", region);
                 mapInfo.put("flag", true);
                 mapInfo.put("msg", "登录成功！用户UID：" + uid + "，用户名：" + nickname);
