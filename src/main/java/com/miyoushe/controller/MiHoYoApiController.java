@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.cache.util.CacheUtils;
 import com.captcha.util.CaptchaUtil;
 import com.miyoushe.entity.CommonRe;
+import com.miyoushe.entity.MiHoYoGachaLinkInfo;
 import com.miyoushe.service.IMiHoYoApiService;
 import com.miyoushe.sign.gs.MiHoYoAbstractSign;
 import com.miyoushe.sign.gs.MiHoYoConfig;
@@ -54,5 +55,10 @@ public class MiHoYoApiController {
     @GetMapping("captcha/cache")
     public String testCache(@RequestParam("phone") String phone) {
         return cacheUtils.getDeviceId(phone);
+    }
+
+    @GetMapping("gacha/links")
+    public CommonRe<MiHoYoGachaLinkInfo> getGachaLink(@RequestParam("cookie") String cookie) {
+        return miHoYoApiService.getGachaLinkByCookie(cookie);
     }
 }

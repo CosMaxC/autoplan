@@ -73,7 +73,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
     }
 
     @Override
-    protected Header[] getBasicHeaders() {
+    public Header[] getBasicHeaders() {
         return new HeaderBuilder.Builder()
                 .add("Accept", "application/json, text/plain, */*")
                 .add("x-rpc-channel", "miyousheluodi")
@@ -116,6 +116,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
                 String nickname = userInfo.getString("nickname");
                 String regionName = userInfo.getString("region_name");
                 String region = userInfo.getString("region");
+                String gameBiz = userInfo.getString("game_biz");
 
                 log.info("获取用户UID：{}", uid);
                 log.info("当前用户名称：{}", nickname);
@@ -126,6 +127,7 @@ public class StarRailSignMiHoYo extends MiHoYoAbstractSign  {
                 Map<String, Object> mapInfo = new HashMap<>();
                 mapInfo.put("uid", uid);
                 mapInfo.put("nickname", nickname);
+                mapInfo.put("game_biz", gameBiz);
                 mapInfo.put("region", region);
                 mapInfo.put("flag", true);
                 mapInfo.put("msg", "登录成功！用户UID：" + uid + "，用户名：" + nickname);

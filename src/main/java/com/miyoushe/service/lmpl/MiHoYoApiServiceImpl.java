@@ -1,6 +1,7 @@
 package com.miyoushe.service.lmpl;
 
 import cn.hutool.core.convert.Convert;
+import cn.hutool.core.net.URLEncodeUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
@@ -14,7 +15,6 @@ import com.miyoushe.entity.MiHoYoGachaLinkInfo;
 import com.miyoushe.mapper.MihoyoUserMapper;
 import com.miyoushe.service.IMiHoYoApiService;
 import com.miyoushe.service.MihayouService;
-import com.miyoushe.sign.constant.MihayouConstants;
 import com.miyoushe.sign.gs.GenShinSignMiHoYo;
 import com.miyoushe.sign.gs.MiHoYoAbstractSign;
 import com.miyoushe.sign.gs.MiHoYoConfig;
@@ -130,28 +130,18 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
             return CommonRe.error("cookie不能为空");
         }
 
-        String loginTicket = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_ticket");
-        String loginUid = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_uid");
-        Map<String, Object> cookieTokenResult = mihayouService.getCookieToken(loginTicket, loginUid);
-        boolean isSuccess = Convert.toBool(cookieTokenResult.get("flag"));
-        String getTokenMsg = Convert.toStr(cookieTokenResult.get("msg"));
-        if (!isSuccess) {
-            String msg = "获取抽卡URL：获取stoken失败：" + getTokenMsg;
-            log.error(msg);
-            return CommonRe.error(msg);
-        }
-        String stoken = Convert.toStr(cookieTokenResult.get("stoken"));
         MiHoYoGachaLinkInfo miHoYoGachaLinkInfo = new MiHoYoGachaLinkInfo();
         // genshin抽卡url
-        String gameBiz = "hk4e_cn";
         GenShinSignMiHoYo genShinSignMiHoYo = new GenShinSignMiHoYo(cookie);
         List<Map<String, Object>> genShinUidInfos = genShinSignMiHoYo.getUid();
+        Header[] genshinHeaders = genShinSignMiHoYo.getBasicHeaders();
 
-        List<MiHoYoGachaLinkInfo.LinkInfo> genshinLink = getCommonGachaLinks(genShinUidInfos, stoken);
+        List<MiHoYoGachaLinkInfo.LinkInfo> genshinLink = getCommonGachaLinks(genShinUidInfos, cookie, MiHoYoConfig.GENSHIN_GACHA_URL);
         // starRail抽卡url
         StarRailSignMiHoYo starRailSignMiHoYo = new StarRailSignMiHoYo(cookie);
         List<Map<String, Object>> starRailUidInfos = starRailSignMiHoYo.getUid();
-        List<MiHoYoGachaLinkInfo.LinkInfo> starRailLink = getCommonGachaLinks(starRailUidInfos, stoken);
+        Header[] starRailHeaders = starRailSignMiHoYo.getBasicHeaders();
+        List<MiHoYoGachaLinkInfo.LinkInfo> starRailLink = getCommonGachaLinks(starRailUidInfos, cookie, MiHoYoConfig.STAR_RAIL_GACHA_URL);
         miHoYoGachaLinkInfo.setStarLink(starRailLink);
         miHoYoGachaLinkInfo.setGenshinLink(genshinLink);
 
@@ -161,13 +151,30 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
     /**
      * 获取genshin抽卡url
      * @param uidInfos uid信息
-     * @param stoken stoken
+     * @param cookie cookie
+     * @param gachaUrl 抽卡url
      * @return 抽卡url
      */
-    private List<MiHoYoGachaLinkInfo.LinkInfo> getCommonGachaLinks(List<Map<String, Object>> uidInfos, String stoken) {
-        List<MiHoYoGachaLinkInfo.LinkInfo> genshinLinkInfos = new ArrayList<>();
-        Map<String, String> headerMap = getAuthKeyHeader(stoken);
+    private List<MiHoYoGachaLinkInfo.LinkInfo> getCommonGachaLinks(List<Map<String, Object>> uidInfos, String cookie, String gachaUrl) {
+
+
+
+        List<MiHoYoGachaLinkInfo.LinkInfo> linkInfos = new ArrayList<>();
         for (Map<String, Object> mapInfo : uidInfos) {
+            String loginTicket = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_ticket");
+            String loginUid = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_uid");
+            Map<String, Object> cookieTokenResult = mihayouService.getCookieToken(loginTicket, loginUid);
+            boolean isSuccess = Convert.toBool(cookieTokenResult.get("flag"));
+            String getTokenMsg = Convert.toStr(cookieTokenResult.get("msg"));
+            if (!isSuccess) {
+                String msg = "获取抽卡URL：获取stoken失败：" + getTokenMsg;
+                log.error(msg);
+                continue;
+            }
+            String stoken = Convert.toStr(cookieTokenResult.get("stoken"));
+            String stuid = loginUid;
+            Map<String, String> headerMap = getAuthKeyHeader(stoken, stuid);
+
             boolean flag = Convert.toBool(mapInfo.get("flag"));
             String mapInfoMsg = Convert.toStr(mapInfo.get("msg"));
             if (!flag) {
@@ -176,26 +183,34 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
                 continue;
             }
 
+            String uid = Convert.toStr(mapInfo.get("uid"));
+            String nickname = Convert.toStr(mapInfo.get("nickname"));
             String gameBiz = Convert.toStr(mapInfo.get("game_biz"));
-            Triple<Boolean, String, String> getSingleGachaLinkResult = getSingleGachaLink(headerMap, gameBiz, mapInfo);
+            Triple<Boolean, String, String> getSingleGachaLinkResult = getSingleGachaLink(headerMap, gameBiz, mapInfo, gachaUrl);
+            if (!getSingleGachaLinkResult.getLeft()) {
+                log.warn("获取抽卡url失败：[{}--{}]:{}", uid, nickname, getSingleGachaLinkResult.getMiddle());
+                continue;
+            }
             String url = getSingleGachaLinkResult.getRight();
             MiHoYoGachaLinkInfo.LinkInfo linkInfo = new MiHoYoGachaLinkInfo.LinkInfo();
-            linkInfo.setUid(Convert.toStr(mapInfo.get("uid")));
-            linkInfo.setNickname(Convert.toStr(mapInfo.get("nickname")));
+            linkInfo.setUid(uid);
+            linkInfo.setNickname(nickname);
             linkInfo.setUrl(url);
-            genshinLinkInfos.add(linkInfo);
+            linkInfos.add(linkInfo);
         }
-        return genshinLinkInfos;
+        return linkInfos;
     }
 
     /**
      * 获取抽卡url
+     *
      * @param headerMap 请求头
-     * @param gameBiz 游戏服
-     * @param mapInfo 单个账号参数
+     * @param gameBiz   游戏服
+     * @param mapInfo   单个账号参数
+     * @param gachaUrl 抽卡url
      * @return 结果
      */
-    private Triple<Boolean, String, String> getSingleGachaLink(Map<String, String> headerMap, String gameBiz, Map<String, Object> mapInfo) {
+    private Triple<Boolean, String, String> getSingleGachaLink(Map<String, String> headerMap, String gameBiz, Map<String, Object> mapInfo, String gachaUrl) {
         String uid = Convert.toStr(mapInfo.get("uid"));
         String nickname = Convert.toStr(mapInfo.get("nickname"));
         String region = Convert.toStr(mapInfo.get("region"));
@@ -214,46 +229,62 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
 
         String body = execute.body();
         JSONObject jsonObject = JSONObject.parseObject(body);
-        if (jsonObject != null && jsonObject.containsKey("data")) {
-            JSONObject data = jsonObject.getJSONObject("data");
-            String authkey = data.getString("authkey");
-            if (StrUtil.isNotBlank(authkey)) {
-                String url = getGachaLink(region, authkey, gameBiz);
-                return ImmutableTriple.of(true, "成功", url);
-            }
+        if (jsonObject == null) {
+            String msg = "获取authKey失败：返回json为空";
+            log.warn(msg);
+            return ImmutableTriple.of(false, msg, null);
         }
-        String msg = "解析返回失败：" + body;
-        log.warn(msg);
-        return ImmutableTriple.of(false, msg, null);
+        if (jsonObject.getIntValue("retcode") != 0) {
+            String msg = "获取authKey失败：["+ jsonObject.getIntValue("retcode") +"]:" + jsonObject.getString("message");
+            log.warn(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        log.info("返回结果：{}", body);
+        JSONObject data = jsonObject.getJSONObject("data");
+        if (data == null) {
+            String msg = "获取authKey失败：返回data为空";
+            log.warn(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        String authkey = data.getString("authkey");
+        if (StrUtil.isBlank(authkey)) {
+            String msg = "获取authKey失败：authKey为空";
+            log.warn(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        String url = getGachaLink(authkey, gameBiz, gachaUrl);
+        return ImmutableTriple.of(true, "成功", url);
     }
 
     /**
      * 获取抽卡地址
-     * @param region 服务器源
-     * @param authkey 读取抽卡的key
-     * @param gameBiz 游戏服务器
+     *
+     * @param authkey  读取抽卡的key
+     * @param gameBiz  游戏服务器
+     * @param gachaUrl 抽卡url
      * @return url
      */
-    private String getGachaLink(String region, String authkey, String gameBiz) {
+    private String getGachaLink(String authkey, String gameBiz, String gachaUrl) {
         Map<String, String> paramMap = new HashMap<>();
-        paramMap.put("region", region);
-        paramMap.put("authkey", authkey);
+        paramMap.put("authkey", URLEncodeUtil.encodeAll(authkey));
         paramMap.put("game_biz", gameBiz);
-        paramMap.put("timestamp", System.currentTimeMillis() + "");
-        return StrUtil.format(MiHoYoConfig.COMMON_GACHA_URL, paramMap);
+        return StrUtil.format(gachaUrl, paramMap);
     }
 
     /**
      * 根据stoken生成获取authKey请求头
-     * @param stoken stoken
+     *
+     * @param stoken       stoken
+     * @param stuid         stuid
      * @return 请求头
      */
-    private Map<String, String> getAuthKeyHeader(String stoken) {
+    private Map<String, String> getAuthKeyHeader(String stoken, String stuid) {
         Map<String, String> headerMap = new HashMap<>();
-        headerMap.put("Cookie", stoken);
+        String cookie = String.format("stuid=%s; stoken=%s", stuid, stoken);
+        headerMap.put("Cookie", cookie);
         headerMap.put("DS", getAuthKeyDS());
         headerMap.put("User-Agent", "okhttp/4.8.0");
-        headerMap.put("x-rpc-app_version", "2.35.2");
+        headerMap.put("x-rpc-app_version", "2.49.1");
         headerMap.put("x-rpc-sys_version", "12");
         headerMap.put("x-rpc-client_type", "5");
         headerMap.put("x-rpc-channel", "mihoyo");
@@ -271,7 +302,7 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
     private String getAuthKeyDS() {
         String i = (System.currentTimeMillis() / 1000) + "";
         String r = getRandomStr();
-        return createDS(MihayouConstants.MIHOYO_BBS_SALT, i, r);
+        return createDS("DG8lqMyc9gquwAUFc7zBS62ijQRX9XF7", i, r);
     }
 
     private String getRandomStr() {

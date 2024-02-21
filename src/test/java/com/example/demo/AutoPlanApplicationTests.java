@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import cn.hutool.core.net.URLEncodeUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -15,6 +16,9 @@ public class AutoPlanApplicationTests {
 
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         System.out.println(simpleDateFormat.format(date));
+
+        String s = "yOM9edJIRhkBylUPZAqVzOgI79gZ1BLpaF5MF9UkbSaLcbol1feOW4koxH5w2EBl0aZglG4N4gdjoZ9RnVqe4yW+hsLZ6Wn/ppMeacRaeqApntFaSImhyHMLe98iCDmU/FaJbJm2xw3r9G0bnw/8IOI8PaY6V1u9b1QfC2tY252o7i0ttFcERguXawr7IEK6HXbCWk0b7Z+UOcjGBAVPSEIRa4nTwWpX8cxLB+No1fethuyQl3XxBvhe2IRV8AOIs0KVocxwQBYcEVLgbNHs6r1KQ9fCN+UIUpgduHAtfxplbH+1Ckmk8Ih/BxtX3nujK0je7+2FU+3ntF4u6G6/EQ==";
+        System.out.println(URLEncodeUtil.encode(s));
     }
 
     @Test

@@ -43,7 +43,7 @@ public abstract class MiHoYoAbstractSign implements Sign {
                 .add("DS", getDS()).addAll(getBasicHeaders()).build();
     }
 
-    protected Header[] getBasicHeaders() {
+    public Header[] getBasicHeaders() {
         return new HeaderBuilder.Builder()
                 .add("Cookie", cookie)
                 .add("User-Agent", String.format(MiHoYoConfig.USER_AGENT_TEMPLATE, getAppVersion()))

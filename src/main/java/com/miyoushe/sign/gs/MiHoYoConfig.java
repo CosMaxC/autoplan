@@ -56,11 +56,6 @@ public class MiHoYoConfig {
 
     public static final String REGION = "cn_gf01"; // 切勿乱修改
 
-    /**
-     * 原神抽卡id
-     */
-    public static final String GENSHIN_GACHA_ID = "fecafa7b6560db5f3182222395d88aaa6aaac1bc";
-
     public static final String MYS_PERSONAL_INFO_URL = "https://bbs-api.miyoushe.com/user/wapi/getUserFullInfo?gids=2";
 
     /**
@@ -73,7 +68,14 @@ public class MiHoYoConfig {
                     + "&lang=zh-cn&device_type=mobile&plat_type=ios&region={region}"
                     + "&authkey={authkey}"
                     + "&game_biz={game_biz}&gacha_type=301&page=1&size=5&end_id=0";
-    public static final String GACHA_URL = "https://webstatic.mihoyo.com/hk4e/event/e20190909gacha-v2/index.html?win_mode=fullscreen&authkey_ver=1&sign_type=2&auth_appid=webview_gacha&init_type=200&timestamp={timestamp}&lang=zh-cn&device_type=mobile&plat_type=android&region={region}&authkey={authkey}&game_biz={game_biz}#/log";
+    /**
+     * 原神抽卡url
+     */
+    public static final String GENSHIN_GACHA_URL = "https://hk4e-api.mihoyo.com/event/gacha_info/api/getGachaLog?authkey_ver=1&lang=zh-cn&authkey={authkey}&game_biz={game_biz}&gacha_type=301";
+    /**
+     * 崩铁抽卡url
+     */
+    public static final String STAR_RAIL_GACHA_URL= "https://api-takumi.mihoyo.com/common/gacha_record/api/getGachaLog?authkey_ver=1&lang=zh-cn&authkey={authkey}&game_biz={game_biz}&gacha_type=11";
     /**
      * 用login_ticket 获取stoken
      */

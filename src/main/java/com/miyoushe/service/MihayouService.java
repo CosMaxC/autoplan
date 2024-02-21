@@ -363,9 +363,15 @@ public class MihayouService {
     public Map<String, Object> getCookieToken(String login_ticket, String accountId) {
         Map<String, Object> map = new HashMap<>();
         String token_url = String.format(MiHoYoConfig.MYS_TOKEN_URL, login_ticket, accountId);
+        Map<String, String> headerMap = new HashMap<>();
+        headerMap.put("x-rpc-app_version", "2.11.2");
+        headerMap.put("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) miHoYoBBS/2.11.1");
+        headerMap.put("x-rpc-client_type", "5");
+        headerMap.put("Referer", "https://webstatic.mihoyo.com/");
+        headerMap.put("Origin", "https://webstatic.mihoyo.com");
         HttpResponse httpResponse = null;
         try {
-            httpResponse = HttpUtils.doGet(token_url, null, HttpUtils.getHeaders(), null);
+            httpResponse = HttpUtils.doGet(token_url, null, headerMap, null);
             JSONObject result = HttpUtils.getJson(httpResponse);
             if (!"OK".equals(result.get("message"))) {
                 map.put("flag", false);
