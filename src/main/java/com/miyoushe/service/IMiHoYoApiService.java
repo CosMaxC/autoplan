@@ -2,6 +2,7 @@ package com.miyoushe.service;
 
 import com.miyoushe.entity.CommonRe;
 import com.miyoushe.entity.MiHoYoGachaLinkInfo;
+import com.miyoushe.entity.TokenInfo;
 
 /**
  * @author :
@@ -30,4 +31,11 @@ public interface IMiHoYoApiService {
      * @return 结果
      */
     CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByCookie(String cookie);
+
+    /**
+     * 获取stoken
+     * @param cookie cookie
+     * @return stoken
+     */
+    CommonRe<TokenInfo> getToken(String cookie);
 }

@@ -1,29 +1,17 @@
 package com.miyoushe.controller;
 
-import cn.hutool.core.lang.UUID;
-import com.alibaba.fastjson.JSONObject;
 import com.cache.util.CacheUtils;
-import com.captcha.util.CaptchaUtil;
 import com.miyoushe.entity.CommonRe;
 import com.miyoushe.entity.MiHoYoGachaLinkInfo;
+import com.miyoushe.entity.TokenInfo;
 import com.miyoushe.service.IMiHoYoApiService;
-import com.miyoushe.sign.gs.MiHoYoAbstractSign;
-import com.miyoushe.sign.gs.MiHoYoConfig;
-import com.miyoushe.util.HttpUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
-import org.apache.http.Header;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * @author :
@@ -60,5 +48,10 @@ public class MiHoYoApiController {
     @GetMapping("gacha/links")
     public CommonRe<MiHoYoGachaLinkInfo> getGachaLink(@RequestParam("cookie") String cookie) {
         return miHoYoApiService.getGachaLinkByCookie(cookie);
+    }
+
+    @GetMapping("token")
+    public CommonRe<TokenInfo> getToken(@RequestParam("cookie") String cookie) {
+        return miHoYoApiService.getToken(cookie);
     }
 }

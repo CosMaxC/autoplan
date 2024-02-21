@@ -12,6 +12,8 @@ import com.cache.util.CacheUtils;
 import com.captcha.util.CaptchaUtil;
 import com.miyoushe.entity.CommonRe;
 import com.miyoushe.entity.MiHoYoGachaLinkInfo;
+import com.miyoushe.entity.StokenV2Info;
+import com.miyoushe.entity.TokenInfo;
 import com.miyoushe.mapper.MihoyoUserMapper;
 import com.miyoushe.service.IMiHoYoApiService;
 import com.miyoushe.service.MihayouService;
@@ -148,32 +150,327 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         return CommonRe.success(miHoYoGachaLinkInfo);
     }
 
+    @Override
+    public CommonRe<TokenInfo> getToken(String cookie) {
+        String loginTicket = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_ticket");
+        String loginUid = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_uid");
+        if (StrUtil.isBlank(loginTicket) || StrUtil.isBlank(loginUid)) {
+            String msg = "获取token失败：cookie没有login_ticket或者login_uid";
+            log.error(msg);
+            return CommonRe.error(msg);
+        }
+
+        Triple<Boolean, String, String> getStokenByCookieResult = getStokenByLoginTicket(loginTicket, loginUid);
+        if (!getStokenByCookieResult.getLeft()) {
+            String msg = "获取token失败：获取stoken失败：" + getStokenByCookieResult.getMiddle();
+            log.error(msg);
+            return CommonRe.error(msg);
+        }
+
+        String stoken = getStokenByCookieResult.getRight();
+        Triple<Boolean, String, String> getLTokenByStokenResult = getLTokenByStoken(stoken, loginUid, 1);
+        if (!getLTokenByStokenResult.getLeft()) {
+            String msg = "获取token失败：获取ltoken失败：" + getLTokenByStokenResult.getMiddle();
+            log.error(msg);
+            return CommonRe.error(msg);
+        }
+        String lToken = getLTokenByStokenResult.getRight();
+        Triple<Boolean, String, StokenV2Info> getStokenV2ByStokenResult = getStokenV2ByStoken(stoken, loginUid);
+        if (!getStokenV2ByStokenResult.getLeft()) {
+            String msg = "获取token失败：获取stoken失败：" + getStokenV2ByStokenResult.getMiddle();
+            log.error(msg);
+            return CommonRe.error(msg);
+        }
+
+        Triple<Boolean, String, String> getCookieTokenByStokenResult = getCookieTokenByStoken(stoken, loginUid);
+        if (!getCookieTokenByStokenResult.getLeft()) {
+            String msg = "获取token失败：获取cookieToken失败：" + getCookieTokenByStokenResult.getMiddle();
+            log.error(msg);
+            return CommonRe.error(msg);
+        }
+        TokenInfo tokenInfo = new TokenInfo();
+        tokenInfo.setLToken(lToken);
+        tokenInfo.setLoginTicket(loginTicket);
+        tokenInfo.setLoginUid(loginUid);
+        tokenInfo.setCookieToken(getCookieTokenByStokenResult.getRight());
+        tokenInfo.setStoken(stoken);
+        tokenInfo.setStokenV2Info(getStokenV2ByStokenResult.getRight());
+        tokenInfo.setStuid(loginUid);
+        return CommonRe.success(tokenInfo);
+    }
+
     /**
-     * 获取genshin抽卡url
+     * 根据stoken获取ltoken 有两种获取方式 v1 v2 stoken都可以
+     * v: 需要stuid和stoken作为cookie
+     * v2: 需要mid和stoken_v2作为token，mid从
+     * @param stoken stoken
+     * @param id stuid 或者 mid
+     * @param stokenVersion stoken 版本 1：v1，2：v2
+     * @return 结果
+     */
+    private Triple<Boolean, String, String> getLTokenByStoken(String stoken, String id, int stokenVersion) {
+        Map<String, String> passportApiHeaderMap = getPassportApiHeaderMap();
+        passportApiHeaderMap.put("x-rpc-device_id", UUID.randomUUID().toString());
+        String cookie;
+        if (stokenVersion == 1) {
+            cookie = String.format("stuid=%s; stoken=%s", id, stoken);
+        } else if (stokenVersion == 2) {
+            cookie = String.format("mid=%s; stoken=%s", id, stoken);
+        } else {
+            String msg = "获取ltoken失败：不支持stokenV" + stokenVersion;
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        passportApiHeaderMap.put("Cookie", cookie);
+        HttpResponse execute = HttpUtil.createGet(MiHoYoConfig.GET_LTOKEN_BY_STOKEN_URL).addHeaders(passportApiHeaderMap).execute();
+        if (!execute.isOk()) {
+            String msg = "获取ltoken失败：["+ execute.getStatus() +"]";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        String body = execute.body();
+        if (StrUtil.isBlank(body)) {
+            String msg = "获取ltoken失败：body为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        JSONObject bodyObj = JSONObject.parseObject(body);
+        if (bodyObj == null) {
+            String msg = "获取ltoken失败：body解析错误";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        int retCode = bodyObj.getIntValue("retcode");
+        if (retCode != 0) {
+            String msg = "获取ltoken失败：["+ retCode +"]:" + bodyObj.getString("message");
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        JSONObject data = bodyObj.getJSONObject("data");
+        if (data == null) {
+            String msg = "获取ltoken失败：data对象为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        String lToken = data.getString("ltoken");
+        if (StrUtil.isBlank(lToken)) {
+            String msg = "获取ltoken失败：ltoken为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        return ImmutableTriple.of(true, "成功", lToken);
+    }
+
+    /**
+     * 获取stoken
+     * @param loginTicket cookie的login_ticket
+     * @param loginUid cookie的login_uid
+     * @return 结果
+     */
+    private Triple<Boolean, String, String> getStokenByLoginTicket(String loginTicket, String loginUid) {
+        Map<String, Object> cookieTokenResult = mihayouService.getCookieToken(loginTicket, loginUid);
+        boolean isSuccess = Convert.toBool(cookieTokenResult.get("flag"));
+        String getTokenMsg = Convert.toStr(cookieTokenResult.get("msg"));
+        if (!isSuccess) {
+            String msg = "获取stoken失败：" + getTokenMsg;
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        String stoken = Convert.toStr(cookieTokenResult.get("stoken"));
+        return ImmutableTriple.of(true, "成功", stoken);
+    }
+
+    /**
+     * 根据stoken获取cookie_token
+     * @param stoken stoken
+     * @param stuid stuid
+     * @return 结果
+     */
+    private Triple<Boolean, String, String> getCookieTokenByStoken(String stoken, String stuid) {
+
+        Map<String, String> headerMap = new HashMap<>();
+        headerMap.put("x-rpc-app_version", "2.11.2");
+        headerMap.put("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) miHoYoBBS/2.11.1");
+        headerMap.put("x-rpc-client_type", "5");
+        headerMap.put("Referer", "https://webstatic.mihoyo.com/");
+        headerMap.put("Origin", "https://webstatic.mihoyo.com");
+        String cookie = String.format("stuid=%s; stoken=%s", stuid, stoken);
+        headerMap.put("Cookie", cookie);
+
+        Map<String, Object> paramMap = new HashMap<>();
+        paramMap.put("stuid", stuid);
+        paramMap.put("stoken", stoken);
+        HttpResponse execute = HttpUtil.createGet(MiHoYoConfig.GET_COOKIE_TOKEN_BY_STOKEN_URL).addHeaders(headerMap).form(paramMap).execute();
+        if (!execute.isOk()) {
+            String msg = "获取cookie_token失败：["+ execute.getStatus() +"]";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        String body = execute.body();
+        if (StrUtil.isBlank(body)) {
+            String msg = "获取cookie_token失败：body为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        JSONObject bodyObj = JSONObject.parseObject(body);
+        if (bodyObj == null) {
+            String msg = "获取cookie_token失败：body解析错误";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        int retCode = bodyObj.getIntValue("retcode");
+        if (retCode != 0) {
+            String msg = "获取cookie_token失败：["+ retCode +"]:" + bodyObj.getString("message");
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        JSONObject data = bodyObj.getJSONObject("data");
+        if (data == null) {
+            String msg = "获取cookie_token失败：data对象为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        String cookieToken = data.getString("cookie_token");
+        if (StrUtil.isBlank(cookieToken)) {
+            String msg = "获取cookie_token失败：cookieToken为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        return ImmutableTriple.of(true, "成功", cookieToken);
+    }
+
+    /**
+     * 根据stoken获取stokenV2
+     * @param stoken stoken
+     * @param stuid 登录uid
+     * @return 结果
+     */
+    private Triple<Boolean, String, StokenV2Info> getStokenV2ByStoken(String stoken, String stuid) {
+        Map<String, String> stokenV2HeaderMap = getPassportApiHeaderMap();
+        stokenV2HeaderMap.put("x-rpc-aigis", "");
+        stokenV2HeaderMap.put("x-rpc-app_id", "bll8iq97cem8");
+        stokenV2HeaderMap.put("DS", getStokenV2DS());
+        String cookie = String.format("stuid=%s; stoken=%s", stuid, stoken);
+        stokenV2HeaderMap.put("Cookie", cookie);
+        HttpResponse execute = HttpUtil.createPost(MiHoYoConfig.GET_STOKEN_V2_BY_V1_URL).addHeaders(stokenV2HeaderMap).execute();
+        if (!execute.isOk()) {
+            String msg = "获取stokenV2失败：["+ execute.getStatus() +"]";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        String body = execute.body();
+        if (StrUtil.isBlank(body)) {
+            String msg = "获取stokenV2失败：body为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        JSONObject bodyObj = JSONObject.parseObject(body);
+        if (bodyObj == null) {
+            String msg = "获取stokenV2失败：body解析错误";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        int retCode = bodyObj.getIntValue("retcode");
+        if (retCode != 0) {
+            String msg = "获取stokenV2失败：["+ retCode +"]:" + bodyObj.getString("message");
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        JSONObject data = bodyObj.getJSONObject("data");
+        if (data == null) {
+            String msg = "获取stokenV2失败：data对象为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        JSONObject token = data.getJSONObject("token");
+        if (token == null) {
+            String msg = "获取stokenV2失败：token对象为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        String stokenV2 = token.getString("token");
+        if (StrUtil.isBlank(stokenV2)) {
+            String msg = "获取stokenV2失败：stokenV2为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        JSONObject userInfo = data.getJSONObject("user_info");
+        if (userInfo == null) {
+            String msg = "获取stokenV2失败：user_info对象为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+
+        String mid = userInfo.getString("mid");
+        if (StrUtil.isBlank(mid)) {
+            String msg = "获取stokenV2失败：mid为空";
+            log.error(msg);
+            return ImmutableTriple.of(false, msg, null);
+        }
+        StokenV2Info stokenV2Info = new StokenV2Info();
+        stokenV2Info.setStokenV2(stokenV2);
+        stokenV2Info.setMid(mid);
+        return ImmutableTriple.of(true, "成功", stokenV2Info);
+    }
+
+    private Map<String, String> getPassportApiHeaderMap() {
+        Map<String, String> map = new HashMap<>();
+        map.put("Host", "passport-api.mihoyo.com");
+        map.put("Connection", "keep-alive");
+        map.put("sec-ch-ua", MiHoYoConfig.DeviceConfig.SEC_CH_UA);
+        map.put("DNT", "1");
+        map.put("x-rpc-device_model", MiHoYoConfig.DeviceConfig.X_RPC_DEVICE_MODEL_MOBILE);
+        map.put("sec-ch-ua-mobile", "?0");
+        map.put("User-Agent", MiHoYoConfig.DeviceConfig.USER_AGENT_OTHER);
+        map.put("x-rpc-device_id", UUID.randomUUID().toString());
+        map.put("Accept", "*/*");
+        map.put("x-rpc-device_name", MiHoYoConfig.DeviceConfig.X_RPC_DEVICE_NAME_MOBILE);
+        map.put("Content-Type", "application/json");
+        map.put("x-rpc-client_type", "1");
+        map.put("sec-ch-ua-platform", MiHoYoConfig.DeviceConfig.SEC_CH_UA_PLATFORM);
+        map.put("Origin", "https://user.mihoyo.com");
+        map.put("Sec-Fetch-Site", "same-site");
+        map.put("Sec-Fetch-Mode", "cors");
+        map.put("Sec-Fetch-Dest", "empty");
+        map.put("Referer", "https://user.mihoyo.com/");
+        map.put("Accept-Encoding", "gzip, deflate, br");
+        map.put("Accept-Language", "zh-CN,zh-Hans;q=0.9");
+        map.put("x-rpc-game_biz", "bbs_cn");
+        map.put("x-rpc-app_version", MiHoYoConfig.DeviceConfig.X_RPC_APP_VERSION);
+        map.put("x-rpc-sdk_version", "1.6.1");
+        map.put("x-rpc-sys_version", MiHoYoConfig.DeviceConfig.X_RPC_SYS_VERSION);
+        return map;
+    }
+
+    /**
+     * 获取抽卡url（崩铁暂时不能用）
      * @param uidInfos uid信息
      * @param cookie cookie
      * @param gachaUrl 抽卡url
      * @return 抽卡url
      */
     private List<MiHoYoGachaLinkInfo.LinkInfo> getCommonGachaLinks(List<Map<String, Object>> uidInfos, String cookie, String gachaUrl) {
-
-
-
         List<MiHoYoGachaLinkInfo.LinkInfo> linkInfos = new ArrayList<>();
+        String loginTicket = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_ticket");
+        String stUid = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_uid");
         for (Map<String, Object> mapInfo : uidInfos) {
-            String loginTicket = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_ticket");
-            String loginUid = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_uid");
-            Map<String, Object> cookieTokenResult = mihayouService.getCookieToken(loginTicket, loginUid);
-            boolean isSuccess = Convert.toBool(cookieTokenResult.get("flag"));
-            String getTokenMsg = Convert.toStr(cookieTokenResult.get("msg"));
-            if (!isSuccess) {
-                String msg = "获取抽卡URL：获取stoken失败：" + getTokenMsg;
-                log.error(msg);
-                continue;
+
+            Triple<Boolean, String, String> getStokenResult = getStokenByLoginTicket(loginTicket, stUid);
+            if (!getStokenResult.getLeft()) {
+                log.error("获取抽卡URL：" + getStokenResult.getMiddle());
+                return linkInfos;
             }
-            String stoken = Convert.toStr(cookieTokenResult.get("stoken"));
-            String stuid = loginUid;
-            Map<String, String> headerMap = getAuthKeyHeader(stoken, stuid);
+            String stoken = getStokenResult.getRight();
+
+            Map<String, String> headerMap = getAuthKeyHeader(stoken, stUid);
 
             boolean flag = Convert.toBool(mapInfo.get("flag"));
             String mapInfoMsg = Convert.toStr(mapInfo.get("msg"));
@@ -303,6 +600,12 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         String i = (System.currentTimeMillis() / 1000) + "";
         String r = getRandomStr();
         return createDS("DG8lqMyc9gquwAUFc7zBS62ijQRX9XF7", i, r);
+    }
+
+    private String getStokenV2DS() {
+        String i = (System.currentTimeMillis() / 1000) + "";
+        String r = getRandomStr();
+        return createDS("xV8v4Qu54lUKrEYFZkJhB8cuOh9Asafs", i, r);
     }
 
     private String getRandomStr() {

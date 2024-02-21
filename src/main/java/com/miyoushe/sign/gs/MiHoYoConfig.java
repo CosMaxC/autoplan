@@ -31,10 +31,6 @@ public class MiHoYoConfig {
     public static final String GET_ACCOUNT_INFO_BY_LOGIN_TICKET_URL = "https://api-takumi.mihoyo.com/account/auth/api/getAccountInfoByLoginTicket";
 
     /**
-     * web端登录获取米游社token相关接口 -- 通过login_ticket获取stoken和ltoken
-     */
-    public static final String MULTI_TOKEN_BY_LOGIN_TICKET_URL = "https://api-takumi.mihoyo.com/auth/api/getMultiTokenByLoginTicket?login_ticket={login_ticket}&token_types=3&uid={uid}";
-    /**
      * genshin
      **/
     public static final String GENSHIN_ACT_ID = "e202311201442471"; // 切勿乱修改
@@ -59,16 +55,6 @@ public class MiHoYoConfig {
     public static final String MYS_PERSONAL_INFO_URL = "https://bbs-api.miyoushe.com/user/wapi/getUserFullInfo?gids=2";
 
     /**
-     * 通用抽卡url
-     */
-    public static final String COMMON_GACHA_URL = "https://hk4e-api.mihoyo.com/event/gacha_info/api/getGachaLog?"
-                    + "authkey_ver=1&sign_type=2&auth_appid=webview_gacha&init_type=301&"
-                    + "gacha_id={gacha_id}"
-                    + "&timestamp={timestamp}"
-                    + "&lang=zh-cn&device_type=mobile&plat_type=ios&region={region}"
-                    + "&authkey={authkey}"
-                    + "&game_biz={game_biz}&gacha_type=301&page=1&size=5&end_id=0";
-    /**
      * 原神抽卡url
      */
     public static final String GENSHIN_GACHA_URL = "https://hk4e-api.mihoyo.com/event/gacha_info/api/getGachaLog?authkey_ver=1&lang=zh-cn&authkey={authkey}&game_biz={game_biz}&gacha_type=301";
@@ -84,20 +70,18 @@ public class MiHoYoConfig {
      * 用stoken获取抽卡需要的authKey
      */
     public static final String GET_AUTH_KEY_URL = "https://api-takumi.mihoyo.com/binding/api/genAuthKey";
-
-    public static final String a = "https://hk4e-api.mihoyo.com/event/gacha_info/api/getGachaLog";
     /**
      * stoken获取cookie_token
      */
-    public static final String COOKIE_TOKEN_BY_STOKEN_URL = "https://passport-api.mihoyo.com/account/auth/api/getCookieAccountInfoBySToken";
+    public static final String GET_COOKIE_TOKEN_BY_STOKEN_URL = "https://passport-api.mihoyo.com/account/auth/api/getCookieAccountInfoBySToken";
     /**
      * stoken获取ltoken
      */
-    public static final String LTOKEN_BY_STOKEN_URL = "https://passport-api.mihoyo.com/account/auth/api/getLTokenBySToken";
+    public static final String GET_LTOKEN_BY_STOKEN_URL = "https://passport-api.mihoyo.com/account/auth/api/getLTokenBySToken";
     /**
      * stoken获取stoken_v2
      */
-    public static final String STOKEN_V2_BY_V1_URL = "https://passport-api.mihoyo.com/account/ma-cn-session/app/getTokenBySToken";
+    public static final String GET_STOKEN_V2_BY_V1_URL = "https://passport-api.mihoyo.com/account/ma-cn-session/app/getTokenBySToken";
     /**
      * stoken获取ticket（非login_ticket）
      */
