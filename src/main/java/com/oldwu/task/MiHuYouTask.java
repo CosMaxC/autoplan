@@ -105,7 +105,8 @@ public class MiHuYouTask {
      * @param autoMihayou autoMihayou
      */
     public void runTask(Integer autoId, Integer userid, AutoMihayou autoMihayou){
-        int reconnect = 1;//最大重试次数
+        //最大重试次数
+        int reconnect = 1;
 
         //更新任务状态
         AutoMihayou autoMihayou1 = new AutoMihayou(autoId,"1",null);
