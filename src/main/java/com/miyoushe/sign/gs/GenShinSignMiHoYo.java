@@ -150,6 +150,13 @@ public class GenShinSignMiHoYo extends MiHoYoAbstractSign {
                 return list;
             }
 
+            if (result.getInteger("retcode") != 0) {
+                map.put("flag", false);
+                map.put("msg", result.getString("message"));
+                list.add(map);
+                return list;
+            }
+
             JSONArray jsonArray = result.getJSONObject("data").getJSONArray("list");
 
             for (Object user : jsonArray) {

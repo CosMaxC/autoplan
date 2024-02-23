@@ -3,6 +3,7 @@ package com.oldwu.task;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.miyoushe.mapper.AutoMihayouDao;
 import com.miyoushe.model.AutoMihayou;
+import com.miyoushe.service.IMiHoYoApiService;
 import com.miyoushe.service.MihayouService;
 import com.miyoushe.sign.Constant;
 import com.miyoushe.sign.DailyTask;
@@ -10,6 +11,7 @@ import com.miyoushe.sign.gs.GenshinHelperProperties;
 import com.oldwu.dao.AutoLogDao;
 import com.oldwu.entity.AutoLog;
 import com.push.PushUtil;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +27,13 @@ public class MiHuYouTask {
     private static AutoMihayouDao mihayouDao;
     private static AutoLogDao logDao;
     private static MihayouService mihayouService;
+    private static IMiHoYoApiService miHoYoApiService;
     private final Log logger = LogFactory.getLog(MiHuYouTask.class);
+
+    @Autowired
+    public void getMiHoYoApiService(IMiHoYoApiService miHoYoApiService) {
+        MiHuYouTask.miHoYoApiService = miHoYoApiService;
+    }
 
     @Autowired
     public void getMihuyouService(MihayouService service){
@@ -106,10 +114,16 @@ public class MiHuYouTask {
         //执行任务
         String suid = autoMihayou.getSuid();
         String stoken = autoMihayou.getStoken();
-        String cookie = autoMihayou.getCookie();
+
+        Triple<Boolean, String, String> cookieTokenByStoken = miHoYoApiService.getCookieTokenByStoken(stoken, suid);
+        if (!cookieTokenByStoken.getLeft()) {
+            logger.error(cookieTokenByStoken.getMiddle());
+            return;
+        }
+        String newCookie = String.format("cookie_token=%s;account_id=%s", cookieTokenByStoken.getRight(), suid);
 
         GenshinHelperProperties.Account account = new GenshinHelperProperties.Account();
-        account.setCookie(cookie);
+        account.setCookie(newCookie);
         account.setStuid(suid);
         account.setStoken(stoken);
 

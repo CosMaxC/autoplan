@@ -6,10 +6,7 @@ import com.miyoushe.entity.MiHoYoGachaLinkInfo;
 import com.miyoushe.entity.TokenInfo;
 import com.miyoushe.service.IMiHoYoApiService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 
@@ -45,7 +42,7 @@ public class MiHoYoApiController {
         return cacheUtils.getDeviceId(phone);
     }
 
-    @GetMapping("gacha/links")
+    @GetMapping("gacha/links/cookie")
     public CommonRe<MiHoYoGachaLinkInfo> getGachaLink(@RequestParam("cookie") String cookie) {
         return miHoYoApiService.getGachaLinkByCookie(cookie);
     }
@@ -53,5 +50,21 @@ public class MiHoYoApiController {
     @GetMapping("token")
     public CommonRe<TokenInfo> getToken(@RequestParam("cookie") String cookie) {
         return miHoYoApiService.getToken(cookie);
+    }
+
+    @GetMapping("phone/bind")
+    public CommonRe<String> bindMobile(@RequestParam("phone") String phone, @RequestParam("captcha") String captcha) {
+        // 验证码登录后绑定用户信息
+        return miHoYoApiService.bindMobile(phone, captcha);
+    }
+
+    @GetMapping("gacha/links/phone")
+    public CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByPhone(@RequestParam("phone") String phone) {
+        return miHoYoApiService.getGachaLinkByPhone(phone);
+    }
+
+    @GetMapping("gacha/links/stoken")
+    public CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByStokenAndStUid(@RequestParam("stoken") String stoken, @RequestParam("stUid") String stUid) {
+        return miHoYoApiService.getGachaLinksByStokenAndStUid(stoken, stUid);
     }
 }

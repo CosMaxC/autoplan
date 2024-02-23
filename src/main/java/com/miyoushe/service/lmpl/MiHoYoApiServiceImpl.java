@@ -1,4 +1,5 @@
 package com.miyoushe.service.lmpl;
+import java.util.Date;
 
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.net.URLEncodeUtil;
@@ -8,13 +9,12 @@ import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cache.util.CacheUtils;
 import com.captcha.util.CaptchaUtil;
-import com.miyoushe.entity.CommonRe;
-import com.miyoushe.entity.MiHoYoGachaLinkInfo;
-import com.miyoushe.entity.StokenV2Info;
-import com.miyoushe.entity.TokenInfo;
+import com.miyoushe.entity.*;
 import com.miyoushe.mapper.MihoyoUserMapper;
+import com.miyoushe.model.MihoyoUser;
 import com.miyoushe.service.IMiHoYoApiService;
 import com.miyoushe.service.MihayouService;
 import com.miyoushe.sign.gs.GenShinSignMiHoYo;
@@ -132,22 +132,16 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
             return CommonRe.error("cookie不能为空");
         }
 
-        MiHoYoGachaLinkInfo miHoYoGachaLinkInfo = new MiHoYoGachaLinkInfo();
-        // genshin抽卡url
-        GenShinSignMiHoYo genShinSignMiHoYo = new GenShinSignMiHoYo(cookie);
-        List<Map<String, Object>> genShinUidInfos = genShinSignMiHoYo.getUid();
-        Header[] genshinHeaders = genShinSignMiHoYo.getBasicHeaders();
-
-        List<MiHoYoGachaLinkInfo.LinkInfo> genshinLink = getCommonGachaLinks(genShinUidInfos, cookie, MiHoYoConfig.GENSHIN_GACHA_URL);
-        // starRail抽卡url
-        StarRailSignMiHoYo starRailSignMiHoYo = new StarRailSignMiHoYo(cookie);
-        List<Map<String, Object>> starRailUidInfos = starRailSignMiHoYo.getUid();
-        Header[] starRailHeaders = starRailSignMiHoYo.getBasicHeaders();
-        List<MiHoYoGachaLinkInfo.LinkInfo> starRailLink = getCommonGachaLinks(starRailUidInfos, cookie, MiHoYoConfig.STAR_RAIL_GACHA_URL);
-        miHoYoGachaLinkInfo.setStarLink(starRailLink);
-        miHoYoGachaLinkInfo.setGenshinLink(genshinLink);
-
-        return CommonRe.success(miHoYoGachaLinkInfo);
+        String loginTicket = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_ticket");
+        String stUid = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_uid");
+        Triple<Boolean, String, String> getStokenResult = getStokenByLoginTicket(loginTicket, stUid);
+        if (!getStokenResult.getLeft()) {
+            String msg = "获取抽卡URL：" + getStokenResult.getMiddle();
+            log.error(msg);
+            return CommonRe.error(msg);
+        }
+        String stoken = getStokenResult.getRight();
+        return getGachaLinksByStokenAndStUid(stoken, stUid);
     }
 
     @Override
@@ -197,6 +191,36 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         tokenInfo.setStokenV2Info(getStokenV2ByStokenResult.getRight());
         tokenInfo.setStuid(loginUid);
         return CommonRe.success(tokenInfo);
+    }
+
+    @Override
+    public CommonRe<String> bindMobile(String phone, String captcha) {
+        CommonRe<String> captchaLoginResult = captchaLogin(phone, captcha);
+        if (!captchaLoginResult.isSuccess()) {
+            return captchaLoginResult;
+        }
+
+        String cookie = captchaLoginResult.getData();
+        CommonRe<TokenInfo> getTokenResult = getToken(cookie);
+        if (!getTokenResult.isSuccess()) {
+            return CommonRe.error(getTokenResult.getMsg());
+        }
+
+        TokenInfo tokenInfo = getTokenResult.getData();
+        MihoyoUser mihoyoUser = new MihoyoUser();
+        mihoyoUser.setMobile(phone);
+        mihoyoUser.setUid(tokenInfo.getLoginUid());
+        mihoyoUser.setStokenV1(tokenInfo.getStoken());
+        mihoyoUser.setLtoken(tokenInfo.getLToken());
+        mihoyoUser.setCookieToken(tokenInfo.getCookieToken());
+        StokenV2Info stokenV2Info = tokenInfo.getStokenV2Info();
+        mihoyoUser.setStokenV2(stokenV2Info.getStokenV2());
+        mihoyoUser.setMid(stokenV2Info.getMid());
+        mihoyoUser.setCreateTime(new Date());
+        mihoyoUser.setUpdateTime(new Date());
+
+        mihoyoUserMapper.insert(mihoyoUser);
+        return CommonRe.success("绑定成功");
     }
 
     /**
@@ -288,7 +312,8 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
      * @param stuid stuid
      * @return 结果
      */
-    private Triple<Boolean, String, String> getCookieTokenByStoken(String stoken, String stuid) {
+    @Override
+    public Triple<Boolean, String, String> getCookieTokenByStoken(String stoken, String stuid) {
 
         Map<String, String> headerMap = new HashMap<>();
         headerMap.put("x-rpc-app_version", "2.11.2");
@@ -341,6 +366,54 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
             return ImmutableTriple.of(false, msg, null);
         }
         return ImmutableTriple.of(true, "成功", cookieToken);
+    }
+
+    @Override
+    public CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByPhone(String phone) {
+        if (StrUtil.isBlank(phone)) {
+            return CommonRe.error("手机号不能为空");
+        }
+        MihoyoUser mihoyoUser = mihoyoUserMapper.selectOne(new LambdaQueryWrapper<MihoyoUser>().eq(MihoyoUser::getMobile, phone));
+        if (mihoyoUser == null) {
+            return CommonRe.error("未找到该用户");
+        }
+        String stokenV1 = mihoyoUser.getStokenV1();
+        String uid = mihoyoUser.getUid();
+
+        return getGachaLinksByStokenAndStUid(stokenV1, uid);
+
+
+    }
+
+    /**
+     * 根据stoken_v1 和uid获取抽卡信息
+     * @param stokenV1 stoken_v1
+     * @param uid uid
+     * @return 结果
+     */
+    @Override
+    public CommonRe<MiHoYoGachaLinkInfo>  getGachaLinksByStokenAndStUid(String stokenV1, String uid) {
+        Triple<Boolean, String, String> cookieTokenByStoken = getCookieTokenByStoken(stokenV1, uid);
+        if (!cookieTokenByStoken.getLeft()) {
+            log.error(cookieTokenByStoken.getMiddle());
+            return CommonRe.error(cookieTokenByStoken.getMiddle());
+        }
+        String cookie = String.format("cookie_token=%s;account_id=%s", cookieTokenByStoken.getRight(), uid);
+
+        MiHoYoGachaLinkInfo miHoYoGachaLinkInfo = new MiHoYoGachaLinkInfo();
+
+        // genshin抽卡url
+        GenShinSignMiHoYo genShinSignMiHoYo = new GenShinSignMiHoYo(cookie);
+        List<Map<String, Object>> genShinUidInfos = genShinSignMiHoYo.getUid();
+        List<MiHoYoGachaLinkInfo.LinkInfo> genshinLink = getCommonGachaLinks(genShinUidInfos, stokenV1, uid, MiHoYoConfig.GENSHIN_GACHA_URL);
+        // starRail抽卡url
+        StarRailSignMiHoYo starRailSignMiHoYo = new StarRailSignMiHoYo(cookie);
+        List<Map<String, Object>> starRailUidInfos = starRailSignMiHoYo.getUid();
+        List<MiHoYoGachaLinkInfo.LinkInfo> starRailLink = getCommonGachaLinks(starRailUidInfos, stokenV1, uid, MiHoYoConfig.STAR_RAIL_GACHA_URL);
+        miHoYoGachaLinkInfo.setStarLink(starRailLink);
+        miHoYoGachaLinkInfo.setGenshinLink(genshinLink);
+
+        return CommonRe.success(miHoYoGachaLinkInfo);
     }
 
     /**
@@ -453,25 +526,16 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
     /**
      * 获取抽卡url（崩铁暂时不能用）
      * @param uidInfos uid信息
-     * @param cookie cookie
+     * @param stoken stoken
+     * @param stUid stUid
      * @param gachaUrl 抽卡url
      * @return 抽卡url
      */
-    private List<MiHoYoGachaLinkInfo.LinkInfo> getCommonGachaLinks(List<Map<String, Object>> uidInfos, String cookie, String gachaUrl) {
+    private List<MiHoYoGachaLinkInfo.LinkInfo> getCommonGachaLinks(List<Map<String, Object>> uidInfos, String stoken, String stUid, String gachaUrl) {
         List<MiHoYoGachaLinkInfo.LinkInfo> linkInfos = new ArrayList<>();
-        String loginTicket = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_ticket");
-        String stUid = com.oldwu.util.HttpUtils.getCookieByName(cookie, "login_uid");
+
         for (Map<String, Object> mapInfo : uidInfos) {
-
-            Triple<Boolean, String, String> getStokenResult = getStokenByLoginTicket(loginTicket, stUid);
-            if (!getStokenResult.getLeft()) {
-                log.error("获取抽卡URL：" + getStokenResult.getMiddle());
-                return linkInfos;
-            }
-            String stoken = getStokenResult.getRight();
-
             Map<String, String> headerMap = getAuthKeyHeader(stoken, stUid);
-
             boolean flag = Convert.toBool(mapInfo.get("flag"));
             String mapInfoMsg = Convert.toStr(mapInfo.get("msg"));
             if (!flag) {
