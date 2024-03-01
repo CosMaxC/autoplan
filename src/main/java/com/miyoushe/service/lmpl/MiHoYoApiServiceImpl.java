@@ -15,7 +15,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cache.util.CacheUtils;
 import com.captcha.util.CaptchaUtil;
 import com.miyoushe.entity.*;
+import com.miyoushe.mapper.AutoMihayouDao;
 import com.miyoushe.mapper.MihoyoUserMapper;
+import com.miyoushe.model.AutoMihayou;
 import com.miyoushe.model.MihoyoUser;
 import com.miyoushe.service.IMiHoYoApiService;
 import com.miyoushe.service.MihayouService;
@@ -24,13 +26,19 @@ import com.miyoushe.sign.gs.MiHoYoAbstractSign;
 import com.miyoushe.sign.gs.MiHoYoConfig;
 import com.miyoushe.sign.gs.StarRailSignMiHoYo;
 import com.miyoushe.util.HttpUtils;
+import com.oldwu.dao.UserDao;
+import com.oldwu.domain.SysUser;
+import com.oldwu.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.http.Header;
+import org.checkerframework.checker.units.qual.C;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -55,6 +63,13 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
 
     @Resource
     private MihayouService mihayouService;
+
+    @Resource
+    private UserDao userDao;
+
+    @Resource
+    private AutoMihayouDao mihayouDao;
+
     /**
      * 获取验证码
      *
@@ -196,7 +211,11 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
     }
 
     @Override
-    public CommonRe<String> bindMobile(String phone, String captcha) {
+    public CommonRe<String> bindMobile(String phone, String account, String captcha) {
+        SysUser sysUser = userDao.findByUserName(account);
+        if (sysUser == null) {
+            return CommonRe.error("找不到管理员用户");
+        }
         CommonRe<String> captchaLoginResult = captchaLogin(phone, captcha);
         if (!captchaLoginResult.isSuccess()) {
             return captchaLoginResult;
@@ -232,7 +251,40 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         } else {
             mihoyoUserMapper.updateById(mihoyoUser);
         }
+
+        Pair<Boolean, String> autoPlanResult = bindAutoPlan(phone, sysUser, tokenInfo);
+        if (!autoPlanResult.getLeft()) {
+            String errMsg = "绑定失败：" + autoPlanResult.getRight();
+            log.error(errMsg);
+            return CommonRe.error(errMsg);
+        }
         return CommonRe.success("绑定成功");
+    }
+
+    private Pair<Boolean, String>  bindAutoPlan(String phone, SysUser sysUser, TokenInfo tokenInfo) {
+        AutoMihayou autoMihayou = new AutoMihayou();
+        autoMihayou.setName("【" + phone + "】的任务");
+        String autoPlanCookie = String.format("login_uid=%s; login_ticket=%s; account_id=%s; cookie_token=%s",
+                tokenInfo.getLoginUid(), tokenInfo.getLoginTicket(), tokenInfo.getLoginUid(), tokenInfo.getCookieToken());
+        autoMihayou.setLcookie(autoPlanCookie);
+        autoMihayou.setCookie(autoPlanCookie);
+        autoMihayou.setUserId(sysUser.getId());
+        autoMihayou.setEnable("true");
+        autoMihayou.setWebhook("");
+
+        List<Map<String, String>> maps = mihayouService.addMiHuYouPlan(autoMihayou);
+        //如果返回多个结果，合并到一个map返回给前端
+        //按理来说不会出现code不同的情况，所以直接取第一个map的返回结果就行了
+        //但是msg需要全部遍历出来
+        StringJoiner msgJoiner = new StringJoiner("];[", "[", "]");
+        boolean isSuccess = false;
+        for (Map<String, String> map : maps) {
+            msgJoiner.add(map.get("msg"));
+            if (!"200".equals(map.get("code")) && !"200".equals(map.get("code"))) {
+                isSuccess = false;
+            }
+        }
+        return ImmutablePair.of(isSuccess, msgJoiner.toString());
     }
 
     /**
@@ -845,7 +897,8 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         if (mmtData.containsKey("gt")) {
             // 需要通过人机验证
             String gt = mmtData.getString("gt");
-            Triple<Boolean, String, String> codeResult = CaptchaUtil.getValidateV4ByRrOcr(gt, mmtKey, headerMap.get("Referer"));
+            String riskType = mmtData.getString("risk_type");
+            Triple<Boolean, String, String> codeResult = CaptchaUtil.getValidateV4ByRrOcr(gt, mmtKey, riskType, headerMap.get("Referer"));
             if (!codeResult.getLeft()) {
                 String msg = "获取人机验证码失败：" + codeResult.getMiddle();
                 log.error(msg);

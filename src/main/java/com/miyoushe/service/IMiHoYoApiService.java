@@ -45,10 +45,11 @@ public interface IMiHoYoApiService {
     /**
      * 绑定手机号和uid
      * @param phone 手机号
+     * @param account 账号
      * @param captcha 验证码
      * @return 结果
      */
-    CommonRe<String> bindMobile(String phone, String captcha);
+    CommonRe<String> bindMobile(String phone, String account, String captcha);
 
     Triple<Boolean, String, String> getCookieTokenByStoken(String stoken, String stuid);
 

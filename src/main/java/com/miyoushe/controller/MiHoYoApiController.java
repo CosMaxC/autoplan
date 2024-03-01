@@ -54,9 +54,11 @@ public class MiHoYoApiController {
     }
 
     @GetMapping("phone/bind")
-    public CommonRe<String> bindMobile(@RequestParam("phone") String phone, @RequestParam("captcha") String captcha) {
+    public CommonRe<String> bindMobile(@RequestParam("phone") String phone,
+                                       @RequestParam("account") String account,
+                                       @RequestParam("captcha") String captcha) {
         // 验证码登录后绑定用户信息
-        return miHoYoApiService.bindMobile(phone, captcha);
+        return miHoYoApiService.bindMobile(phone, account, captcha);
     }
 
     @GetMapping("gacha/links/phone")
