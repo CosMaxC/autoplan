@@ -3,6 +3,7 @@ package com.miyoushe.service;
 import com.miyoushe.entity.CommonRe;
 import com.miyoushe.entity.MiHoYoGachaLinkInfo;
 import com.miyoushe.entity.TokenInfo;
+import com.miyoushe.entity.UnbindPhoneDto;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.List;
@@ -68,4 +69,11 @@ public interface IMiHoYoApiService {
      * @return 结果
      */
     CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByBatchPhone(List<String> phoneList);
+
+    /**
+     * 解绑手机号和uid
+     * @param unbindPhoneDto 解绑数据
+     * @return 结果
+     */
+    CommonRe<String> unbindMobile(UnbindPhoneDto unbindPhoneDto);
 }

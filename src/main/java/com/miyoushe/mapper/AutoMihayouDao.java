@@ -1,4 +1,5 @@
 package com.miyoushe.mapper;
+import org.apache.ibatis.annotations.Param;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.miyoushe.model.AutoMihayou;
@@ -14,4 +15,7 @@ public interface AutoMihayouDao extends BaseMapper<AutoMihayou> {
     AutoMihayou selectBystuid(String suid);
 
     AutoMihayou selectByGenshinUid(String genshinUid);
+    AutoMihayou selectOneByUserIdAndSuid(@Param("userId")Integer userId,@Param("suid")String suid);
+
+
 }

@@ -4,6 +4,7 @@ import com.cache.util.CacheUtils;
 import com.miyoushe.entity.CommonRe;
 import com.miyoushe.entity.MiHoYoGachaLinkInfo;
 import com.miyoushe.entity.TokenInfo;
+import com.miyoushe.entity.UnbindPhoneDto;
 import com.miyoushe.service.IMiHoYoApiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -59,6 +60,12 @@ public class MiHoYoApiController {
                                        @RequestParam("captcha") String captcha) {
         // 验证码登录后绑定用户信息
         return miHoYoApiService.bindMobile(phone, account, captcha);
+    }
+
+    @PostMapping("phone/unbind")
+    public CommonRe<String> unbindMobile(@RequestBody UnbindPhoneDto unbindPhoneDto) {
+        // 验证码登录后绑定用户信息
+        return miHoYoApiService.unbindMobile(unbindPhoneDto);
     }
 
     @GetMapping("gacha/links/phone")

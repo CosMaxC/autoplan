@@ -1,5 +1,7 @@
 package com.miyoushe.service.lmpl;
 import java.util.List;
+
+import cn.hutool.core.collection.CollUtil;
 import com.miyoushe.entity.MiHoYoGachaLinkInfo.LinkInfo;
 import java.util.Date;
 
@@ -68,7 +70,7 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
     private UserDao userDao;
 
     @Resource
-    private AutoMihayouDao mihayouDao;
+    private AutoMihayouDao autoMihayouDao;
 
     /**
      * 获取验证码
@@ -497,6 +499,37 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         miHoYoGachaLinkInfo.setGenshinLink(genshinLink);
         miHoYoGachaLinkInfo.setStarLink(starLink);
         return CommonRe.success(miHoYoGachaLinkInfo);
+    }
+
+    @Override
+    public CommonRe<String> unbindMobile(UnbindPhoneDto unbindPhoneDto) {
+        String account = unbindPhoneDto.getAccount();
+        List<String> mobileList = unbindPhoneDto.getMobileList();
+        SysUser sysUser = userDao.findByUserName(account);
+        if (sysUser == null) {
+            return CommonRe.error("找不到管理员用户");
+        }
+
+        Integer userId = sysUser.getId();
+        List<MihoyoUser> mihoyoUserList = mihoyoUserMapper.selectList(new LambdaQueryWrapper<MihoyoUser>()
+                .in(MihoyoUser::getMobile, mobileList));
+        if (CollUtil.isEmpty(mihoyoUserList)) {
+            log.warn("未绑定米游社，无需解绑");
+            return CommonRe.success("还未绑定米游社，无需解绑");
+        }
+        for (MihoyoUser mihoyoUser : mihoyoUserList) {
+            String uid = mihoyoUser.getUid();
+            AutoMihayou autoMihayou = autoMihayouDao.selectOneByUserIdAndSuid(userId, uid);
+            if (autoMihayou == null) {
+                log.warn("还未绑定米游社定时任务，无需解绑");
+                continue;
+            }
+
+            autoMihayou.setEnable("false");
+            autoMihayouDao.updateById(autoMihayou);
+        }
+
+        return CommonRe.success("解绑成功");
     }
 
     /**
