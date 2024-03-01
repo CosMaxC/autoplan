@@ -5,6 +5,8 @@ import com.miyoushe.entity.MiHoYoGachaLinkInfo;
 import com.miyoushe.entity.TokenInfo;
 import org.apache.commons.lang3.tuple.Triple;
 
+import java.util.List;
+
 /**
  * @author :
  * @date :2024/2/19 10:06
@@ -58,4 +60,11 @@ public interface IMiHoYoApiService {
     CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByPhone(String phone);
 
     CommonRe<MiHoYoGachaLinkInfo>  getGachaLinksByStokenAndStUid(String stokenV1, String uid);
+
+    /**
+     * 批量通过手机号获取抽卡url
+     * @param phoneList 手机号list
+     * @return 结果
+     */
+    CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByBatchPhone(List<String> phoneList);
 }

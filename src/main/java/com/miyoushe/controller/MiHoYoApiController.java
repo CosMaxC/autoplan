@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.util.List;
 
 /**
  * @author :
@@ -61,6 +62,11 @@ public class MiHoYoApiController {
     @GetMapping("gacha/links/phone")
     public CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByPhone(@RequestParam("phone") String phone) {
         return miHoYoApiService.getGachaLinkByPhone(phone);
+    }
+
+    @PostMapping("gacha/links/batch/phone")
+    public CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByBatchPhone(@RequestBody List<String> phoneList) {
+        return miHoYoApiService.getGachaLinkByBatchPhone(phoneList);
     }
 
     @GetMapping("gacha/links/stoken")

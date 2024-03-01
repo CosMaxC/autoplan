@@ -1,4 +1,6 @@
 package com.miyoushe.service.lmpl;
+import java.util.List;
+import com.miyoushe.entity.MiHoYoGachaLinkInfo.LinkInfo;
 import java.util.Date;
 
 import cn.hutool.core.convert.Convert;
@@ -206,8 +208,13 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
             return CommonRe.error(getTokenResult.getMsg());
         }
 
-        TokenInfo tokenInfo = getTokenResult.getData();
         MihoyoUser mihoyoUser = new MihoyoUser();
+        MihoyoUser queryMihoyoUser = mihoyoUserMapper.selectOne(new LambdaQueryWrapper<MihoyoUser>()
+                .eq(MihoyoUser::getMobile, phone));
+        if (queryMihoyoUser != null) {
+            mihoyoUser = queryMihoyoUser;
+        }
+        TokenInfo tokenInfo = getTokenResult.getData();
         mihoyoUser.setMobile(phone);
         mihoyoUser.setUid(tokenInfo.getLoginUid());
         mihoyoUser.setStokenV1(tokenInfo.getStoken());
@@ -216,10 +223,15 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         StokenV2Info stokenV2Info = tokenInfo.getStokenV2Info();
         mihoyoUser.setStokenV2(stokenV2Info.getStokenV2());
         mihoyoUser.setMid(stokenV2Info.getMid());
-        mihoyoUser.setCreateTime(new Date());
         mihoyoUser.setUpdateTime(new Date());
 
-        mihoyoUserMapper.insert(mihoyoUser);
+        if (queryMihoyoUser == null) {
+            mihoyoUser.setCreateTime(new Date());
+            mihoyoUserMapper.insert(mihoyoUser);
+
+        } else {
+            mihoyoUserMapper.updateById(mihoyoUser);
+        }
         return CommonRe.success("绑定成功");
     }
 
@@ -413,6 +425,25 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         miHoYoGachaLinkInfo.setStarLink(starRailLink);
         miHoYoGachaLinkInfo.setGenshinLink(genshinLink);
 
+        return CommonRe.success(miHoYoGachaLinkInfo);
+    }
+
+    @Override
+    public CommonRe<MiHoYoGachaLinkInfo> getGachaLinkByBatchPhone(List<String> phoneList) {
+        MiHoYoGachaLinkInfo miHoYoGachaLinkInfo = new MiHoYoGachaLinkInfo();
+        List<LinkInfo> genshinLink = new ArrayList<>();
+        List<LinkInfo> starLink = new ArrayList<>();
+
+        for (String phone : phoneList) {
+            CommonRe<MiHoYoGachaLinkInfo> gachaLinkByPhone = getGachaLinkByPhone(phone);
+            if (!gachaLinkByPhone.isSuccess()) {
+                continue;
+            }
+            genshinLink.addAll(gachaLinkByPhone.getData().getGenshinLink());
+            starLink.addAll(gachaLinkByPhone.getData().getStarLink());
+        }
+        miHoYoGachaLinkInfo.setGenshinLink(genshinLink);
+        miHoYoGachaLinkInfo.setStarLink(starLink);
         return CommonRe.success(miHoYoGachaLinkInfo);
     }
 
