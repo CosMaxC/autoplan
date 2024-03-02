@@ -21,6 +21,7 @@
                                 <option value="pushplus">PUSH PLUS</option>
                                 <option value="discord">Discord</option>
                                 <option value="wechatcom">企业微信</option>
+                                <option value="customizeWebHook">自定义webhook</option>
                             </select>
                         </div>
                     </div>
@@ -150,6 +151,21 @@
                         </div>
                     </div>
 
+                    <div id="customizeWebHook" style="display: none">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">自定义webhook的url</label>
+                            <div class="layui-input-block">
+                                <input autocomplete="off" class="layui-input" id="customize_url" name="customize_url" placeholder="自定义webhook的url" type="text">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">自定义webhook的token</label>
+                            <div class="layui-input-block">
+                                <input autocomplete="off" class="layui-input" id="customize_token" name="customize_token" placeholder="自定义webhook的token" type="text">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="layui-form-item layui-form-text" id="out" style="display: none">
                         <label class="layui-form-label">输出结果</label>
                         <div class="layui-input-block">
@@ -196,6 +212,7 @@
                         $("#pushplus").css("display", "none");
                         $("#wechatcom").css("display", "none");
                         $("#discord").css("display", "none");
+                        $("#customizeWebHook").css("display", "none");
                     } else if (data.value === 'serverchan') {
                         $("#serverchan").css("display", "block");
                         $("#dingtalk").css("display", "none");
@@ -203,6 +220,7 @@
                         $("#pushplus").css("display", "none");
                         $("#wechatcom").css("display", "none");
                         $("#discord").css("display", "none");
+                        $("#customizeWebHook").css("display", "none");
                     } else if (data.value === 'telegram') {
                         $("#telegram").css("display", "block");
                         $("#serverchan").css("display", "none");
@@ -210,6 +228,7 @@
                         $("#pushplus").css("display", "none");
                         $("#wechatcom").css("display", "none");
                         $("#discord").css("display", "none");
+                        $("#customizeWebHook").css("display", "none");
                     } else if (data.value === 'pushplus') {
                         $("#pushplus").css("display", "block");
                         $("#telegram").css("display", "none");
@@ -217,6 +236,7 @@
                         $("#dingtalk").css("display", "none");
                         $("#wechatcom").css("display", "none");
                         $("#discord").css("display", "none");
+                        $("#customizeWebHook").css("display", "none");
                     } else if (data.value === 'wechatcom') {
                         $("#wechatcom").css("display", "block");
                         $("#pushplus").css("display", "none");
@@ -224,8 +244,18 @@
                         $("#serverchan").css("display", "none");
                         $("#dingtalk").css("display", "none");
                         $("#discord").css("display", "none");
+                        $("#customizeWebHook").css("display", "none");
                     } else if (data.value === 'discord') {
                         $("#discord").css("display", "block");
+                        $("#pushplus").css("display", "none");
+                        $("#telegram").css("display", "none");
+                        $("#serverchan").css("display", "none");
+                        $("#dingtalk").css("display", "none");
+                        $("#wechatcom").css("display", "none");
+                        $("#customizeWebHook").css("display", "none");
+                    } else if (data.value === 'customizeWebHook') {
+                        $("#customizeWebHook").css("display", "block");
+                        $("#discord").css("display", "none");
                         $("#pushplus").css("display", "none");
                         $("#telegram").css("display", "none");
                         $("#serverchan").css("display", "none");
@@ -274,6 +304,9 @@
                         obj.WE_COM_APP_MEDIA_ID = data.field.wechatcom_push_mediaid;
                     }else if (data.field.webhook_type === 'discord') {
                         obj.DISCORD_URL = data.field.discord_url;
+                    } else if (data.field.webhook_type === 'customizeWebHook') {
+                        obj.CUSTOMIZE_WEBHOOK_URL = data.field.customize_url;
+                        obj.CUSTOMIZE_WEBHOOK_TOKEN = data.field.customize_token;
                     }
                     return JSON.stringify(obj);
                 }

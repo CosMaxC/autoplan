@@ -1,10 +1,7 @@
 package com.miyoushe.controller;
 
 import com.cache.util.CacheUtils;
-import com.miyoushe.entity.CommonRe;
-import com.miyoushe.entity.MiHoYoGachaLinkInfo;
-import com.miyoushe.entity.TokenInfo;
-import com.miyoushe.entity.UnbindPhoneDto;
+import com.miyoushe.entity.*;
 import com.miyoushe.service.IMiHoYoApiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -54,12 +51,10 @@ public class MiHoYoApiController {
         return miHoYoApiService.getToken(cookie);
     }
 
-    @GetMapping("phone/bind")
-    public CommonRe<String> bindMobile(@RequestParam("phone") String phone,
-                                       @RequestParam("account") String account,
-                                       @RequestParam("captcha") String captcha) {
+    @PostMapping("phone/bind")
+    public CommonRe<String> bindMobile(@RequestBody BindMobileDto bindMobileDto) {
         // 验证码登录后绑定用户信息
-        return miHoYoApiService.bindMobile(phone, account, captcha);
+        return miHoYoApiService.bindMobile(bindMobileDto);
     }
 
     @PostMapping("phone/unbind")

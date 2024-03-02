@@ -30,17 +30,14 @@ import com.miyoushe.sign.gs.StarRailSignMiHoYo;
 import com.miyoushe.util.HttpUtils;
 import com.oldwu.dao.UserDao;
 import com.oldwu.domain.SysUser;
-import com.oldwu.service.UserService;
+import com.push.config.PushConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.http.Header;
-import org.checkerframework.checker.units.qual.C;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -213,12 +210,18 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
     }
 
     @Override
-    public CommonRe<String> bindMobile(String phone, String account, String captcha) {
+    public CommonRe<String> bindMobile(BindMobileDto bindMobileDto) {
+        String mobile = bindMobileDto.getMobile();
+        String account = bindMobileDto.getAccount();
+        String captcha = bindMobileDto.getCaptcha();
+        String webHookToken = bindMobileDto.getWebHookToken();
+        String webhookUrl = bindMobileDto.getWebHookUrl();
+
         SysUser sysUser = userDao.findByUserName(account);
         if (sysUser == null) {
             return CommonRe.error("找不到管理员用户");
         }
-        CommonRe<String> captchaLoginResult = captchaLogin(phone, captcha);
+        CommonRe<String> captchaLoginResult = captchaLogin(mobile, captcha);
         if (!captchaLoginResult.isSuccess()) {
             return captchaLoginResult;
         }
@@ -231,12 +234,12 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
 
         MihoyoUser mihoyoUser = new MihoyoUser();
         MihoyoUser queryMihoyoUser = mihoyoUserMapper.selectOne(new LambdaQueryWrapper<MihoyoUser>()
-                .eq(MihoyoUser::getMobile, phone));
+                .eq(MihoyoUser::getMobile, mobile));
         if (queryMihoyoUser != null) {
             mihoyoUser = queryMihoyoUser;
         }
         TokenInfo tokenInfo = getTokenResult.getData();
-        mihoyoUser.setMobile(phone);
+        mihoyoUser.setMobile(mobile);
         mihoyoUser.setUid(tokenInfo.getLoginUid());
         mihoyoUser.setStokenV1(tokenInfo.getStoken());
         mihoyoUser.setLtoken(tokenInfo.getLToken());
@@ -254,7 +257,7 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
             mihoyoUserMapper.updateById(mihoyoUser);
         }
 
-        Pair<Boolean, String> autoPlanResult = bindAutoPlan(phone, sysUser, tokenInfo);
+        Pair<Boolean, String> autoPlanResult = bindAutoPlan(mobile, sysUser, tokenInfo, webHookToken, webhookUrl);
         if (!autoPlanResult.getLeft()) {
             String errMsg = "绑定失败：" + autoPlanResult.getRight();
             log.error(errMsg);
@@ -263,7 +266,8 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         return CommonRe.success("绑定成功");
     }
 
-    private Pair<Boolean, String>  bindAutoPlan(String phone, SysUser sysUser, TokenInfo tokenInfo) {
+
+    private Pair<Boolean, String>  bindAutoPlan(String phone, SysUser sysUser, TokenInfo tokenInfo, String webHookToken, String webHookUrl) {
         AutoMihayou autoMihayou = new AutoMihayou();
         autoMihayou.setName("【" + phone + "】的任务");
         String autoPlanCookie = String.format("login_uid=%s; login_ticket=%s; account_id=%s; cookie_token=%s",
@@ -272,14 +276,14 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
         autoMihayou.setCookie(autoPlanCookie);
         autoMihayou.setUserId(sysUser.getId());
         autoMihayou.setEnable("true");
-        autoMihayou.setWebhook("");
+        autoMihayou.setWebhook(generateWebHookJson(webHookToken, webHookUrl));
 
         List<Map<String, String>> maps = mihayouService.addMiHuYouPlan(autoMihayou);
         //如果返回多个结果，合并到一个map返回给前端
         //按理来说不会出现code不同的情况，所以直接取第一个map的返回结果就行了
         //但是msg需要全部遍历出来
         StringJoiner msgJoiner = new StringJoiner("];[", "[", "]");
-        boolean isSuccess = false;
+        boolean isSuccess = true;
         for (Map<String, String> map : maps) {
             msgJoiner.add(map.get("msg"));
             if (!"200".equals(map.get("code")) && !"200".equals(map.get("code"))) {
@@ -287,6 +291,13 @@ public class MiHoYoApiServiceImpl implements IMiHoYoApiService {
             }
         }
         return ImmutablePair.of(isSuccess, msgJoiner.toString());
+    }
+
+    private String generateWebHookJson(String webHookToken, String webHookUrl) {
+        Map<String, String> map = new HashMap<>(2);
+        map.put("CUSTOMIZE_WEB_HOOK_URL", webHookUrl);
+        map.put("CUSTOMIZE_WEB_HOOK_TOKEN", webHookToken);
+        return JSONUtil.toJsonStr(map);
     }
 
     /**

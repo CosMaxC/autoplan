@@ -1,9 +1,6 @@
 package com.miyoushe.service;
 
-import com.miyoushe.entity.CommonRe;
-import com.miyoushe.entity.MiHoYoGachaLinkInfo;
-import com.miyoushe.entity.TokenInfo;
-import com.miyoushe.entity.UnbindPhoneDto;
+import com.miyoushe.entity.*;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.List;
@@ -44,13 +41,11 @@ public interface IMiHoYoApiService {
     CommonRe<TokenInfo> getToken(String cookie);
 
     /**
-     * 绑定手机号和uid
-     * @param phone 手机号
-     * @param account 账号
-     * @param captcha 验证码
+     * 绑定业务
+     * @param bindMobileDto 绑定数据dto
      * @return 结果
      */
-    CommonRe<String> bindMobile(String phone, String account, String captcha);
+    CommonRe<String> bindMobile(BindMobileDto bindMobileDto);
 
     Triple<Boolean, String, String> getCookieTokenByStoken(String stoken, String stuid);
 

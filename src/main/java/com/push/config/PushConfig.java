@@ -6,9 +6,6 @@ import com.push.model.PushMetaInfo;
 import lombok.Data;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.HttpHost;
-
-import java.net.InetSocketAddress;
 
 /**
  * pushconfig ddd .
@@ -123,6 +120,16 @@ public class PushConfig {
      */
     private String DISCORD_URL;
 
+    /**
+     * qq webhook推送url
+     */
+    private String CUSTOMIZE_WEB_HOOK_URL;
+
+    /**
+     * qq webhook token
+     */
+    private String CUSTOMIZE_WEB_HOOK_TOKEN;
+
     public PushInfo getPushInfo() {
         if (StringUtils.isNoneBlank(TG_BOT_TOKEN, TG_USER_ID) && Boolean.TRUE.equals(TG_USE_CUSTOM_URL)) {
             return new PushInfo(new TelegramCustomUrlPush(), TG_BOT_TOKEN, TG_USER_ID);
@@ -144,6 +151,8 @@ public class PushConfig {
             return new PushInfo(new ServerChanPush(), SC_KEY);
         } else if (StringUtils.isNoneBlank(WE_COM_APP_CORP_SECRET, WE_COM_APP_CORPID) && null != WE_COM_APP_AGENT_ID) {
             return new PushInfo(new WeComAppPush(), WE_COM_APP_CORPID, null, WE_COM_APP_CORP_SECRET, WE_COM_APP_AGENT_ID, WE_COM_APP_TO_USER, WE_COM_APP_MEDIA_ID);
+        } else if (StringUtils.isNotBlank(CUSTOMIZE_WEB_HOOK_URL) && StringUtils.isNotBlank(CUSTOMIZE_WEB_HOOK_TOKEN)) {
+            return new PushInfo(new CustomizePush(CUSTOMIZE_WEB_HOOK_URL, CUSTOMIZE_WEB_HOOK_TOKEN), CUSTOMIZE_WEB_HOOK_TOKEN);
         } else {
             return null;
         }
